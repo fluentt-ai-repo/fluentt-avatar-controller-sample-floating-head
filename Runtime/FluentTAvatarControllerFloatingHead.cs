@@ -14,7 +14,7 @@ namespace FluentT.Avatar.SampleFloatingHead
     /// Use this as a starting point for your own custom avatar control logic.
     /// </summary>
     [RequireComponent(typeof(FluentTAvatar))]
-    public partial class FluentTAvatarSampleController : MonoBehaviour
+    public partial class FluentTAvatarControllerFloatingHead : MonoBehaviour
     {
         [Header("References")]
         [SerializeField] private FluentTAvatar avatar;

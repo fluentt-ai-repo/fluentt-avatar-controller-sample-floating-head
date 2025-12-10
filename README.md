@@ -37,7 +37,7 @@ Add to your project's `Packages/manifest.json`:
 
 ## Usage
 
-1. Add `FluentTAvatarSampleController` component to your avatar GameObject
+1. Add `FluentTAvatarControllerFloatingHead` component to your avatar GameObject
 2. Configure the avatar references and settings in the inspector
 3. The controller will automatically integrate with the FluentTAvatar component
 

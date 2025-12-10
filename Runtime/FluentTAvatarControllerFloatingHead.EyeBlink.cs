@@ -8,7 +8,7 @@ namespace FluentT.Avatar.SampleFloatingHead
     /// Eye Blink control partial class
     /// Simple coroutine-based eye blinking without Timeline dependency
     /// </summary>
-    public partial class FluentTAvatarSampleController
+    public partial class FluentTAvatarControllerFloatingHead
     {
         private Coroutine blinkCoroutine;
         private List<BlendShapeInfo> blinkBlendShapes = new List<BlendShapeInfo>();
@@ -39,7 +39,7 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             if (avatar == null)
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] Avatar reference not set");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Avatar reference not set");
                 return;
             }
 
@@ -48,7 +48,7 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             if (blinkBlendShapes.Count == 0)
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] No eye blink blend shapes found (eyeBlinkLeft, eyeBlinkRight)");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] No eye blink blend shapes found (eyeBlinkLeft, eyeBlinkRight)");
                 return;
             }
 
@@ -59,7 +59,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
             blinkCoroutine = StartCoroutine(BlinkRoutine());
 
-            Debug.Log($"[FluentTAvatarSampleController] Eye blink initialized with {blinkBlendShapes.Count} blend shapes");
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Eye blink initialized with {blinkBlendShapes.Count} blend shapes");
         }
 
         /// <summary>
@@ -87,7 +87,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                         if (shapeName == targetName)
                         {
                             blinkBlendShapes.Add(new BlendShapeInfo(skmr, i, shapeName));
-                            Debug.Log($"[FluentTAvatarSampleController] Found blink blend shape: {shapeName} at index {i}");
+                            Debug.Log($"[FluentTAvatarControllerFloatingHead] Found blink blend shape: {shapeName} at index {i}");
                             break;
                         }
                     }

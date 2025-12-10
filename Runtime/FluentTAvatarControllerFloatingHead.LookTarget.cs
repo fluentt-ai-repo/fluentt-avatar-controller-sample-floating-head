@@ -7,7 +7,7 @@ namespace FluentT.Avatar.SampleFloatingHead
     /// Look Target control partial class
     /// Handles look target setup and real-time control
     /// </summary>
-    public partial class FluentTAvatarSampleController
+    public partial class FluentTAvatarControllerFloatingHead
     {
         [SerializeField] private bool enableHeadControl = true;
         [SerializeField] [Range(0f, 20f)] private float headSpeed = 5f;
@@ -65,14 +65,14 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Validate Multi-Aim Constraints
             if (headAimConstraint == null)
             {
-                Debug.LogError("[FluentTAvatarSampleController] Head Multi-Aim Constraint not assigned! Please assign it in the Inspector.");
+                Debug.LogError("[FluentTAvatarControllerFloatingHead] Head Multi-Aim Constraint not assigned! Please assign it in the Inspector.");
                 return;
             }
 
             if (enableEyeControl && eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt &&
                 (leftEyeAimConstraint == null || rightEyeAimConstraint == null))
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] Eye control enabled but Left/Right Eye Multi-Aim Constraints not assigned!");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Eye control enabled but Left/Right Eye Multi-Aim Constraints not assigned!");
             }
 
             // Initialize LookTargetController
@@ -99,13 +99,13 @@ namespace FluentT.Avatar.SampleFloatingHead
                 {
                     lookTargetController.SetVirtualTargetsCorrected(headVirtualTargetRef, leftEyeVirtualTargetRef, rightEyeVirtualTargetRef);
                     lookTargetController.Initialize(useFindMethod: false);
-                    Debug.Log("[FluentTAvatarSampleController] Using serialized virtual target references for TransformCorrected mode (optimized)");
+                    Debug.Log("[FluentTAvatarControllerFloatingHead] Using serialized virtual target references for TransformCorrected mode (optimized)");
                 }
                 else
                 {
                     // Fallback to GameObject.Find if references not set
                     lookTargetController.Initialize(useFindMethod: true);
-                    Debug.LogWarning("[FluentTAvatarSampleController] Virtual target references not set, using GameObject.Find (slower)");
+                    Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Virtual target references not set, using GameObject.Find (slower)");
                 }
             }
             else
@@ -115,20 +115,20 @@ namespace FluentT.Avatar.SampleFloatingHead
                 {
                     lookTargetController.SetVirtualTargets(headVirtualTargetRef, eyeVirtualTargetRef);
                     lookTargetController.Initialize(useFindMethod: false);
-                    Debug.Log("[FluentTAvatarSampleController] Using serialized virtual target references (optimized)");
+                    Debug.Log("[FluentTAvatarControllerFloatingHead] Using serialized virtual target references (optimized)");
                 }
                 else
                 {
                     // Fallback to GameObject.Find if references not set
                     lookTargetController.Initialize(useFindMethod: true);
-                    Debug.LogWarning("[FluentTAvatarSampleController] Virtual target references not set, using GameObject.Find (slower)");
+                    Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Virtual target references not set, using GameObject.Find (slower)");
                 }
             }
 
             // Enable
             lookTargetController.Enable();
 
-            Debug.Log("[FluentTAvatarSampleController] Look target initialized");
+            Debug.Log("[FluentTAvatarControllerFloatingHead] Look target initialized");
         }
 
         /// <summary>
@@ -145,7 +145,7 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             if (targetAnimator == null)
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] No Animator component found");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] No Animator component found");
                 return;
             }
 
@@ -174,14 +174,14 @@ namespace FluentT.Avatar.SampleFloatingHead
                 {
                     lookLeftEyeBall = lookHead;
                     eyesFallbackToHead = true;
-                    Debug.LogWarning("[FluentTAvatarSampleController] Left eye bone not found! Using head transform as fallback.");
+                    Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Left eye bone not found! Using head transform as fallback.");
                 }
 
                 if (lookRightEyeBall == null && lookHead != null)
                 {
                     lookRightEyeBall = lookHead;
                     eyesFallbackToHead = true;
-                    Debug.LogWarning("[FluentTAvatarSampleController] Right eye bone not found! Using head transform as fallback.");
+                    Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Right eye bone not found! Using head transform as fallback.");
                 }
 
                 // Check if eye control can be enabled based on strategy
@@ -191,12 +191,12 @@ namespace FluentT.Avatar.SampleFloatingHead
                     if (lookLeftEyeBall == null || lookRightEyeBall == null)
                     {
                         enableEyeControl = false;
-                        Debug.LogWarning("[FluentTAvatarSampleController] Eye control disabled: Transform strategy requires both eye transforms");
+                        Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Eye control disabled: Transform strategy requires both eye transforms");
                     }
                     else if (eyesFallbackToHead)
                     {
                         enableEyeControl = false;
-                        Debug.LogWarning("[FluentTAvatarSampleController] Eye control disabled: Transform strategy cannot use head as eye fallback");
+                        Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Eye control disabled: Transform strategy cannot use head as eye fallback");
                     }
                 }
                 else if (eyeControlStrategy == EEyeControlStrategy.BlendWeightFluentt)
@@ -215,22 +215,22 @@ namespace FluentT.Avatar.SampleFloatingHead
                     if (!hasAllBlendShapes)
                     {
                         enableEyeControl = false;
-                        Debug.LogWarning("[FluentTAvatarSampleController] Eye control disabled: BlendWeight strategy requires all 8 eye look blend shapes");
+                        Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Eye control disabled: BlendWeight strategy requires all 8 eye look blend shapes");
                     }
                     // BlendWeight can work with head fallback, just warn the user
                     else if (eyesFallbackToHead)
                     {
-                        Debug.LogWarning("[FluentTAvatarSampleController] Eye bones not found, using head for direction calculation. BlendShape control will still work.");
+                        Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Eye bones not found, using head for direction calculation. BlendShape control will still work.");
                     }
                 }
 
-                Debug.Log($"[FluentTAvatarSampleController] Found transforms - Head: {(lookHead != null ? lookHead.name : "not found")}, " +
+                Debug.Log($"[FluentTAvatarControllerFloatingHead] Found transforms - Head: {(lookHead != null ? lookHead.name : "not found")}, " +
                          $"Left Eye: {(lookLeftEyeBall != null ? lookLeftEyeBall.name : "not found")}, " +
                          $"Right Eye: {(lookRightEyeBall != null ? lookRightEyeBall.name : "not found")}");
             }
             else
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] Avatar is not Humanoid type. Please use a Humanoid Avatar for auto-find feature.");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Avatar is not Humanoid type. Please use a Humanoid Avatar for auto-find feature.");
             }
         }
 
@@ -376,7 +376,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 if (avatarVirtualTargetGroup != null)
                 {
                     Destroy(avatarVirtualTargetGroup.gameObject);
-                    Debug.Log($"[FluentTAvatarSampleController] Deleted {avatarGroupName} group at runtime");
+                    Debug.Log($"[FluentTAvatarControllerFloatingHead] Deleted {avatarGroupName} group at runtime");
                 }
             }
         }

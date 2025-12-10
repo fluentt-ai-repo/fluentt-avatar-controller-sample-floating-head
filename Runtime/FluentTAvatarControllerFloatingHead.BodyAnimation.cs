@@ -16,7 +16,7 @@ namespace FluentT.Avatar.SampleFloatingHead
     ///
     /// This prevents abrupt state transitions when talking starts/stops mid-animation.
     /// </summary>
-    public partial class FluentTAvatarSampleController
+    public partial class FluentTAvatarControllerFloatingHead
     {
         #region Body Animation Initialization
 
@@ -25,7 +25,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             animator = GetComponent<Animator>();
             if (animator == null)
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] No Animator component found");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] No Animator component found");
                 return;
             }
 
@@ -38,7 +38,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
             else
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] No animator controller assigned");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] No animator controller assigned");
                 return;
             }
 
@@ -53,7 +53,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Setup state machine behaviours
             SetupStateMachineBehaviours();
 
-            Debug.Log("[FluentTAvatarSampleController] Animator initialized successfully");
+            Debug.Log("[FluentTAvatarControllerFloatingHead] Animator initialized successfully");
         }
 
         /// <summary>
@@ -77,7 +77,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 behaviour.controller = this;
             }
 
-            Debug.Log($"[FluentTAvatarSampleController] Setup {behaviours.Length} idle and {talkingBehaviours.Length} talking state behaviours");
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Setup {behaviours.Length} idle and {talkingBehaviours.Length} talking state behaviours");
         }
 
         #endregion

@@ -12,7 +12,7 @@ namespace FluentT.Avatar.SampleFloatingHead
     {
         [HideInInspector]
         [Tooltip("Reference to the controller that provides animation clips (set automatically at runtime)")]
-        public FluentTAvatarSampleController controller;
+        public FluentTAvatarControllerFloatingHead controller;
 
         [Tooltip("Dummy clip name to override (e.g., 'idle_dummy_0' or 'idle_dummy_1')")]
         public string dummyClipName;
@@ -36,12 +36,12 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Auto-find controller if null
             if (controller == null)
             {
-                controller = animator.GetComponent<FluentTAvatarSampleController>();
+                controller = animator.GetComponent<FluentTAvatarControllerFloatingHead>();
                 if (controller == null)
                 {
                     if (!hasShownError)
                     {
-                        Debug.LogError("[IdleAnimationRandomizer] Controller not found! Make sure FluentTAvatarSampleController is attached to the same GameObject as the Animator. This behaviour will be disabled.");
+                        Debug.LogError("[IdleAnimationRandomizer] Controller not found! Make sure FluentTAvatarControllerFloatingHead is attached to the same GameObject as the Animator. This behaviour will be disabled.");
                         hasShownError = true;
                         isDisabled = true; // Disable this behaviour
                     }

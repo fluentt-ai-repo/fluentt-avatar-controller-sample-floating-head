@@ -13,7 +13,7 @@ namespace FluentT.Avatar.SampleFloatingHead
     /// Handles client-side emotion detection and animation
     /// This is a sample implementation showing how to add emotion-based animations
     /// </summary>
-    public partial class FluentTAvatarSampleController
+    public partial class FluentTAvatarControllerFloatingHead
     {
         private TimelineTMAnimation timelineEmotionTagging;
 
@@ -41,7 +41,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Get TMAnimationComponent from FluentTAvatar
             if (avatar == null || avatar.TMAnimationComponent == null)
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] FluentTAvatar or its TMAnimationComponent not found. Emotion tagging will not work.");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] FluentTAvatar or its TMAnimationComponent not found. Emotion tagging will not work.");
                 return;
             }
 
@@ -53,7 +53,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 updatePhase = TMAnimationLayer.UpdatePhase.LateUpdate
             };
 
-            Debug.Log("[FluentTAvatarSampleController] Emotion tagging initialized");
+            Debug.Log("[FluentTAvatarControllerFloatingHead] Emotion tagging initialized");
         }
 
         #endregion
@@ -214,7 +214,7 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             timelineEmotionTagging.Reserve(timeSlot, animationElement);
 
-            Debug.Log($"[FluentTAvatarSampleController] Applied emotion motion '{motionMapping.emotionTag}' for word '{tag.word}' at time {timelineStartTime + tag.startTime:F2}s, duration {duration:F2}s");
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Applied emotion motion '{motionMapping.emotionTag}' for word '{tag.word}' at time {timelineStartTime + tag.startTime:F2}s, duration {duration:F2}s");
         }
 
         /// <summary>

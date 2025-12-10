@@ -3,12 +3,12 @@ using UnityEngine;
 
 namespace FluentT.Avatar.SampleFloatingHead.Editor
 {
-    [CustomEditor(typeof(FluentTAvatarSampleController))]
-    public class FluentTAvatarSampleControllerEditor : UnityEditor.Editor
+    [CustomEditor(typeof(FluentTAvatarControllerFloatingHead))]
+    public class FluentTAvatarControllerFloatingHeadEditor : UnityEditor.Editor
     {
         private string[] _tabNames = { "Body Animation", "Look Target", "Emotion Tagging", "Server Motion Tagging", "Eye Blink" };
 
-        private string SessionStateKey => $"FluentTAvatarSampleController_SelectedTab_{target.GetInstanceID()}";
+        private string SessionStateKey => $"FluentTAvatarControllerFloatingHead_SelectedTab_{target.GetInstanceID()}";
 
         public override void OnInspectorGUI()
         {
@@ -63,7 +63,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
         private void DrawLookTargetSettings()
         {
-            var controller = (FluentTAvatarSampleController)target;
+            var controller = (FluentTAvatarControllerFloatingHead)target;
 
             EditorGUILayout.LabelField("Look Target Settings", EditorStyles.boldLabel);
 
@@ -118,13 +118,13 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     }
                 }
 
-                var headSkmrField = typeof(FluentTAvatarSampleController).GetField("head_skmr",
+                var headSkmrField = typeof(FluentTAvatarControllerFloatingHead).GetField("head_skmr",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 headSkmrField?.SetValue(controller, headRenderers);
 
                 EditorUtility.SetDirty(target);
                 serializedObject.Update();
-                Debug.Log($"[FluentTAvatarSampleController] Found {headRenderers.Count} SkinnedMeshRenderers with blend shapes");
+                Debug.Log($"[FluentTAvatarControllerFloatingHead] Found {headRenderers.Count} SkinnedMeshRenderers with blend shapes");
             }
 
             EditorGUILayout.Space();
@@ -284,12 +284,12 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         /// <summary>
         /// Automatically setup Animation Rigging structure for look target tracking
         /// </summary>
-        private void SetupLookTargetRig(FluentTAvatarSampleController controller)
+        private void SetupLookTargetRig(FluentTAvatarControllerFloatingHead controller)
         {
             if (controller == null)
                 return;
 
-            Debug.Log("[FluentTAvatarSampleController] Setting up look target rig structure...");
+            Debug.Log("[FluentTAvatarControllerFloatingHead] Setting up look target rig structure...");
 
             var avatar = controller.gameObject;
 
@@ -298,7 +298,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             if (rigBuilder == null)
             {
                 rigBuilder = avatar.AddComponent<UnityEngine.Animations.Rigging.RigBuilder>();
-                Debug.Log("[FluentTAvatarSampleController] Added RigBuilder component");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Added RigBuilder component");
             }
 
             // 2. Find or create TargetTracking
@@ -311,14 +311,14 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 targetTracking.localPosition = Vector3.zero;
                 targetTracking.localRotation = Quaternion.identity;
                 targetTracking.localScale = Vector3.one;
-                Debug.Log("[FluentTAvatarSampleController] Created TargetTracking GameObject");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Created TargetTracking GameObject");
             }
 
             // Ensure TargetTracking is active
             if (!targetTracking.gameObject.activeSelf)
             {
                 targetTracking.gameObject.SetActive(true);
-                Debug.Log("[FluentTAvatarSampleController] Enabled TargetTracking GameObject");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Enabled TargetTracking GameObject");
             }
 
             // Add Rig component to TargetTracking
@@ -326,7 +326,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             if (rig == null)
             {
                 rig = targetTracking.gameObject.AddComponent<UnityEngine.Animations.Rigging.Rig>();
-                Debug.Log("[FluentTAvatarSampleController] Added Rig component to TargetTracking");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Added Rig component to TargetTracking");
             }
 
             // Ensure rig is enabled with full weight
@@ -341,7 +341,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             if (!rigsList.Contains(rig))
             {
                 rigBuilder.layers.Add(new UnityEngine.Animations.Rigging.RigLayer(rig));
-                Debug.Log("[FluentTAvatarSampleController] Added Rig to RigBuilder layers");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Added Rig to RigBuilder layers");
             }
 
             // 3. Setup Head Tracking
@@ -357,13 +357,13 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             EditorUtility.SetDirty(controller);
             EditorUtility.SetDirty(avatar);
 
-            Debug.Log("[FluentTAvatarSampleController] Look target rig setup complete!");
+            Debug.Log("[FluentTAvatarControllerFloatingHead] Look target rig setup complete!");
         }
 
         /// <summary>
         /// Setup head tracking constraint and virtual target
         /// </summary>
-        private void SetupHeadTracking(FluentTAvatarSampleController controller, Transform targetTracking)
+        private void SetupHeadTracking(FluentTAvatarControllerFloatingHead controller, Transform targetTracking)
         {
             // Find or create HeadTracking
             Transform headTracking = targetTracking.Find("HeadTracking");
@@ -385,7 +385,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
                 // Find head transform
                 controller.FindLookTargetTransforms();
-                var headTransformField = typeof(FluentTAvatarSampleController).GetField("lookHead",
+                var headTransformField = typeof(FluentTAvatarControllerFloatingHead).GetField("lookHead",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 var headTransform = headTransformField?.GetValue(controller) as Transform;
 
@@ -401,7 +401,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     headConstraint.data = data;
                 }
 
-                Debug.Log("[FluentTAvatarSampleController] Added Multi-Aim Constraint to HeadTracking");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Added Multi-Aim Constraint to HeadTracking");
             }
 
             // Create or find VirtualTargets container in scene root
@@ -409,7 +409,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             if (virtualTargetsContainer == null)
             {
                 virtualTargetsContainer = new GameObject("VirtualTargets");
-                Debug.Log("[FluentTAvatarSampleController] Created VirtualTargets container");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Created VirtualTargets container");
             }
 
             // Create or find avatar-specific virtual target group
@@ -421,7 +421,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 GameObject avatarGroupGO = new GameObject(avatarGroupName);
                 avatarVirtualTargetGroup = avatarGroupGO.transform;
                 avatarVirtualTargetGroup.SetParent(virtualTargetsContainer.transform);
-                Debug.Log($"[FluentTAvatarSampleController] Created {avatarGroupName} group");
+                Debug.Log($"[FluentTAvatarControllerFloatingHead] Created {avatarGroupName} group");
             }
 
             // Create or find head virtual target
@@ -433,7 +433,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 headVirtualTarget.SetParent(avatarVirtualTargetGroup);
 
                 // Position in front of head
-                var headTransformField = typeof(FluentTAvatarSampleController).GetField("lookHead",
+                var headTransformField = typeof(FluentTAvatarControllerFloatingHead).GetField("lookHead",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 var headTransform = headTransformField?.GetValue(controller) as Transform;
                 if (headTransform != null)
@@ -445,7 +445,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     headVirtualTarget.position = new Vector3(0, 0, 2);
                 }
 
-                Debug.Log("[FluentTAvatarSampleController] Created HeadVirtualTarget");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Created HeadVirtualTarget");
             }
 
             // Add virtual target to constraint source objects
@@ -466,11 +466,11 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 sourceObjects.Add(new UnityEngine.Animations.Rigging.WeightedTransform(headVirtualTarget, 1f));
                 constraintData.sourceObjects = sourceObjects;
                 headConstraint.data = constraintData;
-                Debug.Log("[FluentTAvatarSampleController] Added HeadVirtualTarget to constraint source objects");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Added HeadVirtualTarget to constraint source objects");
             }
 
             // Set reference to controller
-            var headAimConstraintField = typeof(FluentTAvatarSampleController).GetField("headAimConstraint",
+            var headAimConstraintField = typeof(FluentTAvatarControllerFloatingHead).GetField("headAimConstraint",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             headAimConstraintField?.SetValue(controller, headConstraint);
         }
@@ -479,10 +479,10 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         /// Setup eye tracking constraints and virtual targets
         /// Creates either single shared target or separate left/right targets based on strategy
         /// </summary>
-        private void SetupEyeTracking(FluentTAvatarSampleController controller, Transform targetTracking)
+        private void SetupEyeTracking(FluentTAvatarControllerFloatingHead controller, Transform targetTracking)
         {
             // Get eye control strategy using reflection
-            var eyeControlStrategyField = typeof(FluentTAvatarSampleController).GetField("eyeControlStrategy",
+            var eyeControlStrategyField = typeof(FluentTAvatarControllerFloatingHead).GetField("eyeControlStrategy",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             var strategy = (EEyeControlStrategy)eyeControlStrategyField?.GetValue(controller);
 
@@ -491,7 +491,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             {
                 // Only create eye virtual target for direction calculation
                 CreateEyeVirtualTarget(controller);
-                Debug.Log("[FluentTAvatarSampleController] BlendWeightFluentt mode: Skipping LeftEyeTracking/RightEyeTracking creation");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] BlendWeightFluentt mode: Skipping LeftEyeTracking/RightEyeTracking creation");
                 return;
             }
 
@@ -526,7 +526,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         /// <summary>
         /// Create or find the single eye virtual target (shared by both eyes)
         /// </summary>
-        private Transform CreateEyeVirtualTarget(FluentTAvatarSampleController controller)
+        private Transform CreateEyeVirtualTarget(FluentTAvatarControllerFloatingHead controller)
         {
             // Find or create VirtualTargets container
             GameObject virtualTargetsContainer = GameObject.Find("VirtualTargets");
@@ -555,11 +555,11 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 eyeVirtualTarget.SetParent(avatarVirtualTargetGroup);
 
                 // Position at center between eyes
-                var leftEyeField = typeof(FluentTAvatarSampleController).GetField("lookLeftEyeBall",
+                var leftEyeField = typeof(FluentTAvatarControllerFloatingHead).GetField("lookLeftEyeBall",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var rightEyeField = typeof(FluentTAvatarSampleController).GetField("lookRightEyeBall",
+                var rightEyeField = typeof(FluentTAvatarControllerFloatingHead).GetField("lookRightEyeBall",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var headField = typeof(FluentTAvatarSampleController).GetField("lookHead",
+                var headField = typeof(FluentTAvatarControllerFloatingHead).GetField("lookHead",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
                 var leftEye = leftEyeField?.GetValue(controller) as Transform;
@@ -577,7 +577,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     eyeVirtualTarget.position = new Vector3(0, 0, 2);
                 }
 
-                Debug.Log("[FluentTAvatarSampleController] Created EyeVirtualTarget");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Created EyeVirtualTarget");
             }
 
             return eyeVirtualTarget;
@@ -586,7 +586,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         /// <summary>
         /// Create or find separate left/right eye virtual targets (for TransformCorrected mode)
         /// </summary>
-        private (Transform leftEye, Transform rightEye) CreateLeftRightEyeVirtualTargets(FluentTAvatarSampleController controller)
+        private (Transform leftEye, Transform rightEye) CreateLeftRightEyeVirtualTargets(FluentTAvatarControllerFloatingHead controller)
         {
             // Find or create VirtualTargets container
             GameObject virtualTargetsContainer = GameObject.Find("VirtualTargets");
@@ -607,11 +607,11 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             }
 
             // Get eye transforms using reflection
-            var leftEyeField = typeof(FluentTAvatarSampleController).GetField("lookLeftEyeBall",
+            var leftEyeField = typeof(FluentTAvatarControllerFloatingHead).GetField("lookLeftEyeBall",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var rightEyeField = typeof(FluentTAvatarSampleController).GetField("lookRightEyeBall",
+            var rightEyeField = typeof(FluentTAvatarControllerFloatingHead).GetField("lookRightEyeBall",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var headField = typeof(FluentTAvatarSampleController).GetField("lookHead",
+            var headField = typeof(FluentTAvatarControllerFloatingHead).GetField("lookHead",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
             var leftEye = leftEyeField?.GetValue(controller) as Transform;
@@ -636,7 +636,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     leftEyeVirtualTarget.position = new Vector3(-0.03f, 0, 2);
                 }
 
-                Debug.Log("[FluentTAvatarSampleController] Created LeftEyeVirtualTarget");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Created LeftEyeVirtualTarget");
             }
 
             // Create or find right eye virtual target
@@ -657,7 +657,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     rightEyeVirtualTarget.position = new Vector3(0.03f, 0, 2);
                 }
 
-                Debug.Log("[FluentTAvatarSampleController] Created RightEyeVirtualTarget");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Created RightEyeVirtualTarget");
             }
 
             return (leftEyeVirtualTarget, rightEyeVirtualTarget);
@@ -666,7 +666,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         /// <summary>
         /// Setup single eye tracking constraint to use shared virtual target
         /// </summary>
-        private void SetupSingleEyeTracking(FluentTAvatarSampleController controller, Transform targetTracking,
+        private void SetupSingleEyeTracking(FluentTAvatarControllerFloatingHead controller, Transform targetTracking,
             string trackingName, string eyeTransformFieldName, string constraintFieldName, Transform sharedEyeVirtualTarget)
         {
             // Find or create eye tracking
@@ -689,7 +689,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
                 // Find eye transform
                 controller.FindLookTargetTransforms();
-                var eyeTransformField = typeof(FluentTAvatarSampleController).GetField(eyeTransformFieldName,
+                var eyeTransformField = typeof(FluentTAvatarControllerFloatingHead).GetField(eyeTransformFieldName,
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 var eyeTransform = eyeTransformField?.GetValue(controller) as Transform;
 
@@ -705,7 +705,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     eyeConstraint.data = data;
                 }
 
-                Debug.Log($"[FluentTAvatarSampleController] Added Multi-Aim Constraint to {trackingName}");
+                Debug.Log($"[FluentTAvatarControllerFloatingHead] Added Multi-Aim Constraint to {trackingName}");
             }
 
             // Add shared virtual target to constraint source objects
@@ -726,11 +726,11 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 sourceObjects.Add(new UnityEngine.Animations.Rigging.WeightedTransform(sharedEyeVirtualTarget, 1f));
                 constraintData.sourceObjects = sourceObjects;
                 eyeConstraint.data = constraintData;
-                Debug.Log($"[FluentTAvatarSampleController] Added EyeVirtualTarget to {trackingName} constraint");
+                Debug.Log($"[FluentTAvatarControllerFloatingHead] Added EyeVirtualTarget to {trackingName} constraint");
             }
 
             // Set reference to controller
-            var constraintField = typeof(FluentTAvatarSampleController).GetField(constraintFieldName,
+            var constraintField = typeof(FluentTAvatarControllerFloatingHead).GetField(constraintFieldName,
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             constraintField?.SetValue(controller, eyeConstraint);
         }
@@ -738,7 +738,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         /// <summary>
         /// Set virtual target references to serialized fields (avoids GameObject.Find at runtime)
         /// </summary>
-        private void SetVirtualTargetReferences(FluentTAvatarSampleController controller)
+        private void SetVirtualTargetReferences(FluentTAvatarControllerFloatingHead controller)
         {
             if (controller == null)
                 return;
@@ -747,7 +747,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             GameObject virtualTargetsContainer = GameObject.Find("VirtualTargets");
             if (virtualTargetsContainer == null)
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] VirtualTargets container not found!");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] VirtualTargets container not found!");
                 return;
             }
 
@@ -757,12 +757,12 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             Transform avatarVirtualTargetGroup = virtualTargetsContainer.transform.Find(avatarGroupName);
             if (avatarVirtualTargetGroup == null)
             {
-                Debug.LogWarning($"[FluentTAvatarSampleController] {avatarGroupName} not found!");
+                Debug.LogWarning($"[FluentTAvatarControllerFloatingHead] {avatarGroupName} not found!");
                 return;
             }
 
             // Get eye control strategy using reflection
-            var eyeControlStrategyField = typeof(FluentTAvatarSampleController).GetField("eyeControlStrategy",
+            var eyeControlStrategyField = typeof(FluentTAvatarControllerFloatingHead).GetField("eyeControlStrategy",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             var strategy = (EEyeControlStrategy)eyeControlStrategyField?.GetValue(controller);
 
@@ -770,7 +770,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             Transform headVirtualTarget = avatarVirtualTargetGroup.Find("HeadVirtualTarget");
 
             // Set serialized field references using reflection
-            var headVirtualTargetRefField = typeof(FluentTAvatarSampleController).GetField("headVirtualTargetRef",
+            var headVirtualTargetRefField = typeof(FluentTAvatarControllerFloatingHead).GetField("headVirtualTargetRef",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
             headVirtualTargetRefField?.SetValue(controller, headVirtualTarget);
@@ -781,39 +781,39 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 Transform leftEyeVirtualTarget = avatarVirtualTargetGroup.Find("LeftEyeVirtualTarget");
                 Transform rightEyeVirtualTarget = avatarVirtualTargetGroup.Find("RightEyeVirtualTarget");
 
-                var leftEyeVirtualTargetRefField = typeof(FluentTAvatarSampleController).GetField("leftEyeVirtualTargetRef",
+                var leftEyeVirtualTargetRefField = typeof(FluentTAvatarControllerFloatingHead).GetField("leftEyeVirtualTargetRef",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var rightEyeVirtualTargetRefField = typeof(FluentTAvatarSampleController).GetField("rightEyeVirtualTargetRef",
+                var rightEyeVirtualTargetRefField = typeof(FluentTAvatarControllerFloatingHead).GetField("rightEyeVirtualTargetRef",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
                 leftEyeVirtualTargetRefField?.SetValue(controller, leftEyeVirtualTarget);
                 rightEyeVirtualTargetRefField?.SetValue(controller, rightEyeVirtualTarget);
 
-                Debug.Log("[FluentTAvatarSampleController] Set virtual target references for TransformCorrected mode (head + left/right eye)");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Set virtual target references for TransformCorrected mode (head + left/right eye)");
             }
             else
             {
                 // Transform/BlendShape mode: set single shared eye virtual target reference
                 Transform eyeVirtualTarget = avatarVirtualTargetGroup.Find("EyeVirtualTarget");
 
-                var eyeVirtualTargetRefField = typeof(FluentTAvatarSampleController).GetField("eyeVirtualTargetRef",
+                var eyeVirtualTargetRefField = typeof(FluentTAvatarControllerFloatingHead).GetField("eyeVirtualTargetRef",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
                 eyeVirtualTargetRefField?.SetValue(controller, eyeVirtualTarget);
 
-                Debug.Log("[FluentTAvatarSampleController] Set virtual target references for Transform/BlendShape mode (head + shared eye)");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Set virtual target references for Transform/BlendShape mode (head + shared eye)");
             }
         }
 
         /// <summary>
         /// Disable look target rig (without destroying it)
         /// </summary>
-        private void DisableLookTargetRig(FluentTAvatarSampleController controller)
+        private void DisableLookTargetRig(FluentTAvatarControllerFloatingHead controller)
         {
             if (controller == null)
                 return;
 
-            Debug.Log("[FluentTAvatarSampleController] Disabling look target rig...");
+            Debug.Log("[FluentTAvatarControllerFloatingHead] Disabling look target rig...");
 
             var avatar = controller.gameObject;
             Transform targetTracking = avatar.transform.Find("TargetTracking");
@@ -825,7 +825,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     rig.weight = 0f;
                 }
                 targetTracking.gameObject.SetActive(false);
-                Debug.Log("[FluentTAvatarSampleController] Disabled TargetTracking");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Disabled TargetTracking");
             }
 
             // Delete avatar-specific virtual target group from VirtualTargets container
@@ -837,7 +837,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 if (avatarVirtualTargetGroup != null)
                 {
                     DestroyImmediate(avatarVirtualTargetGroup.gameObject);
-                    Debug.Log($"[FluentTAvatarSampleController] Deleted {avatarGroupName} group");
+                    Debug.Log($"[FluentTAvatarControllerFloatingHead] Deleted {avatarGroupName} group");
                 }
             }
 
@@ -847,21 +847,21 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         /// <summary>
         /// Auto-find eye look blend shapes from head skinned mesh renderers
         /// </summary>
-        private void AutoFindEyeBlendShapes(FluentTAvatarSampleController controller)
+        private void AutoFindEyeBlendShapes(FluentTAvatarControllerFloatingHead controller)
         {
             // Get head skinned mesh renderers using reflection
-            var headSkmrField = typeof(FluentTAvatarSampleController).GetField("head_skmr",
+            var headSkmrField = typeof(FluentTAvatarControllerFloatingHead).GetField("head_skmr",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             var headSkmr = headSkmrField?.GetValue(controller) as System.Collections.Generic.List<SkinnedMeshRenderer>;
 
             if (headSkmr == null || headSkmr.Count == 0)
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] No head skinned mesh renderers found. Please assign head_skmr first.");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] No head skinned mesh renderers found. Please assign head_skmr first.");
                 return;
             }
 
             // Get eyeBlendShapes field
-            var eyeBlendShapesField = typeof(FluentTAvatarSampleController).GetField("eyeBlendShapes",
+            var eyeBlendShapesField = typeof(FluentTAvatarControllerFloatingHead).GetField("eyeBlendShapes",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             var eyeBlendShapes = eyeBlendShapesField?.GetValue(controller) as EyeBlendShapes;
 
@@ -952,11 +952,11 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             if (foundCount > 0)
             {
-                Debug.Log($"[FluentTAvatarSampleController] Auto-found {foundCount} eye look blend shapes!");
+                Debug.Log($"[FluentTAvatarControllerFloatingHead] Auto-found {foundCount} eye look blend shapes!");
             }
             else
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] No eye look blend shapes found. Make sure your avatar has eyeLookUp/Down/In/OutLeft/Right blend shapes.");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] No eye look blend shapes found. Make sure your avatar has eyeLookUp/Down/In/OutLeft/Right blend shapes.");
             }
         }
 

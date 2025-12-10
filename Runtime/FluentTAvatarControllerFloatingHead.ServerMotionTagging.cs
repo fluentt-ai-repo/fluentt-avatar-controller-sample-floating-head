@@ -13,7 +13,7 @@ namespace FluentT.Avatar.SampleFloatingHead
     /// Handles server-side emotion tags and body animations
     /// This is a sample implementation showing how to use server-provided emotion tags
     /// </summary>
-    public partial class FluentTAvatarSampleController
+    public partial class FluentTAvatarControllerFloatingHead
     {
         private TimelineAnimatorClip timelineServerMotionTagging;
 
@@ -26,13 +26,13 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             if (animator == null)
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] Animator not found. Server motion tagging will not work.");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Animator not found. Server motion tagging will not work.");
                 return;
             }
 
             if (overrideController == null)
             {
-                Debug.LogWarning("[FluentTAvatarSampleController] Override controller not found. Server motion tagging will not work.");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Override controller not found. Server motion tagging will not work.");
                 return;
             }
 
@@ -43,7 +43,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 "DummyServerMotion 2");
             timelineServerMotionTagging.SetEnableOverlap(true);
 
-            Debug.Log("[FluentTAvatarSampleController] Server motion tagging initialized");
+            Debug.Log("[FluentTAvatarControllerFloatingHead] Server motion tagging initialized");
         }
 
         #endregion
@@ -59,13 +59,13 @@ namespace FluentT.Avatar.SampleFloatingHead
             if (!enableServerMotionTagging || taggedMotion == null)
                 return;
 
-            Debug.Log($"[FluentTAvatarSampleController] Server motion tag triggered - Tag: {taggedMotion.tag}, Word: {taggedMotion.word}, Confidence: {taggedMotion.confidence}");
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Server motion tag triggered - Tag: {taggedMotion.tag}, Word: {taggedMotion.word}, Confidence: {taggedMotion.confidence}");
 
             // Find matching motion mapping
             var motionMapping = GetServerMotionMapping(taggedMotion.tag);
             if (motionMapping == null || motionMapping.animationClip == null)
             {
-                Debug.LogWarning($"[FluentTAvatarSampleController] No motion mapping found for tag '{taggedMotion.tag}'");
+                Debug.LogWarning($"[FluentTAvatarControllerFloatingHead] No motion mapping found for tag '{taggedMotion.tag}'");
                 return;
             }
 
@@ -91,7 +91,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             float fadeDuration = 0.2f; // 0.2 second crossfade
             animator.CrossFadeInFixedTime(motionMapping.animationClip.name, fadeDuration, 2); // Layer 2
 
-            Debug.Log($"[FluentTAvatarSampleController] Playing server motion: {motionMapping.emotionTag}");
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing server motion: {motionMapping.emotionTag}");
         }
 
         #endregion
@@ -108,13 +108,13 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             var taggedMotion = data.taggedMotion;
 
-            Debug.Log($"[FluentTAvatarSampleController] Processing server motion tag - Tag: {taggedMotion.tag}, Word: {taggedMotion.word}, Word Index: {taggedMotion.word_index}/{taggedMotion.total_words}, Confidence: {taggedMotion.confidence}");
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Processing server motion tag - Tag: {taggedMotion.tag}, Word: {taggedMotion.word}, Word Index: {taggedMotion.word_index}/{taggedMotion.total_words}, Confidence: {taggedMotion.confidence}");
 
             // Find matching motion mapping
             var motionMapping = GetServerMotionMapping(taggedMotion.tag);
             if (motionMapping == null || motionMapping.animationClip == null)
             {
-                Debug.LogWarning($"[FluentTAvatarSampleController] No motion mapping found for tag '{taggedMotion.tag}'");
+                Debug.LogWarning($"[FluentTAvatarControllerFloatingHead] No motion mapping found for tag '{taggedMotion.tag}'");
                 return;
             }
 
@@ -176,7 +176,7 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             timelineServerMotionTagging.Reserve(timeSlot, animatorElement);
 
-            Debug.Log($"[FluentTAvatarSampleController] Applied server motion '{motionMapping.emotionTag}' for word '{taggedMotion.word}' at time {startTime:F2}s, duration {duration:F2}s, confidence {taggedMotion.confidence:F2}");
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Applied server motion '{motionMapping.emotionTag}' for word '{taggedMotion.word}' at time {startTime:F2}s, duration {duration:F2}s, confidence {taggedMotion.confidence:F2}");
         }
 
         /// <summary>
