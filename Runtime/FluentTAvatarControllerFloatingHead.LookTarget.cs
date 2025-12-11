@@ -293,9 +293,8 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Update look target (allows inspector changes to take effect immediately)
             lookTargetController.SetLookTarget(lookTarget);
 
-            // Update settings based on talking state
-            LookTargetSetting currentSetting = isTalking ? talkingLookSettings : idleLookSettings;
-            lookTargetController.SetLookTargetSetting(currentSetting);
+            // Update settings (using idle settings as default)
+            lookTargetController.SetLookTargetSetting(idleLookSettings);
 
             // Update settings
             lookTargetController.enableHeadControl = enableHeadControl;

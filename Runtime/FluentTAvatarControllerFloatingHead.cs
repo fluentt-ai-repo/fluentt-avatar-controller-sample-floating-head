@@ -18,15 +18,11 @@ namespace FluentT.Avatar.SampleFloatingHead
     {
         [Header("References")]
         [SerializeField] private FluentTAvatar avatar;
-
-        [Header("Body Animation")]
         [SerializeField] private RuntimeAnimatorController animatorController;
-        [SerializeField] public List<AnimationClip> idleClips = new();
-        [SerializeField] public List<AnimationClip> talkingClips = new();
 
-        [Header("Body Animation Blend Settings")]
-        [Tooltip("Time to blend in/out talking layer weight")]
-        [SerializeField] [Range(0f, 2f)] private float talkingBlendTime = 0.5f;
+        [Header("Default Idle Animation")]
+        [Tooltip("Default idle pose and facial expression animation clip (overrides default_dummy)")]
+        [SerializeField] private AnimationClip defaultIdleAnimationClip;
 
         [Header("Look Target")]
         [SerializeField] private bool enableLookTarget = true;
@@ -96,15 +92,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         // Private state
         private Animator animator;
         private AnimatorOverrideController overrideController;
-        private bool isTalking = false;
-
-        // Talking layer blend weight
-        private float currentTalkingLayerWeight = 0f;
-        private float targetTalkingLayerWeight = 0f;
-
-        // Last played clips (to avoid repeating the same animation)
-        [System.NonSerialized] public AnimationClip lastIdleClip;
-        [System.NonSerialized] public AnimationClip lastTalkingClip;
 
         // Cached references
         [SerializeField] private List<SkinnedMeshRenderer> head_skmr;
@@ -185,7 +172,25 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         private void Start()
         {
-            InitializeAnimator();
+            // Initialize Animator and Override Controller for Server Motion Tagging
+            if (avatar != null)
+            {
+                animator = avatar.GetComponent<Animator>();
+                if (animator != null && animatorController != null)
+                {
+                    animator.runtimeAnimatorController = animatorController;
+                    overrideController = new AnimatorOverrideController(animatorController);
+                    animator.runtimeAnimatorController = overrideController;
+
+                    // Override default_dummy with defaultIdleAnimationClip if assigned
+                    if (defaultIdleAnimationClip != null)
+                    {
+                        overrideController["default_dummy"] = defaultIdleAnimationClip;
+                        Debug.Log($"[FluentTAvatarControllerFloatingHead] Overriding default_dummy with {defaultIdleAnimationClip.name}");
+                    }
+                }
+            }
+
             InitializeLookTarget();
             InitializeEmotionTagging();
             InitializeServerMotionTagging();
@@ -246,11 +251,6 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         public void OnSentenceStarted(FluentT.APIClient.V3.TalkMotionData data)
         {
-            isTalking = true;
-
-            // Start talking animations via state machine trigger
-            StartTalkingAnimations(data?.audioClip);
-
             // Process client-side emotion tagging if enabled
             if (enableClientEmotionTagging && data != null && data.audioClip != null && !string.IsNullOrEmpty(data.text))
             {
@@ -263,10 +263,7 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         public void OnSentenceEnded(FluentT.APIClient.V3.TalkMotionData data)
         {
-            isTalking = false;
-
-            // Stop talking animations via state machine trigger
-            StopTalkingAnimations(data?.audioClip);
+            // Sentence ended
         }
 
         public void OnTranscriptionReceived(FluentT.Talkmotion.TranscriptionData data)
@@ -294,19 +291,10 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         private void UpdateTimelines(float deltaTime)
         {
-            // Update talking layer weight smoothly
-            if (animator != null && talkingBlendTime > 0)
-            {
-                float blendSpeed = 1f / talkingBlendTime;
-                currentTalkingLayerWeight = Mathf.MoveTowards(currentTalkingLayerWeight, targetTalkingLayerWeight, blendSpeed * deltaTime);
-                animator.SetLayerWeight(1, currentTalkingLayerWeight); // Layer 1 is talking layer
-            }
-
             // Update emotion tagging timeline
             UpdateEmotionTaggingTimeline(deltaTime);
 
-            // Update server motion tagging timeline
-            UpdateServerMotionTaggingTimeline(deltaTime);
+            // Server motion tagging uses Animator triggers, no timeline update needed
         }
 
         private void LateUpdateTimelines(float deltaTime)
@@ -314,8 +302,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             // LateUpdate emotion tagging timeline
             LateUpdateEmotionTaggingTimeline(deltaTime);
 
-            // LateUpdate server motion tagging timeline
-            LateUpdateServerMotionTaggingTimeline(deltaTime);
+            // Server motion tagging uses Animator triggers, no timeline update needed
         }
 
         #endregion

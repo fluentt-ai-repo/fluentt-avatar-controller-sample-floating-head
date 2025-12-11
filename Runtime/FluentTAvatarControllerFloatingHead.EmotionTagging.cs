@@ -53,7 +53,10 @@ namespace FluentT.Avatar.SampleFloatingHead
                 updatePhase = TMAnimationLayer.UpdatePhase.LateUpdate
             };
 
-            Debug.Log("[FluentTAvatarControllerFloatingHead] Emotion tagging initialized");
+            // Set blend mode from FluentTAvatar's face blend mode setting
+            timelineEmotionTagging.SetBlendMode(avatar.faceBlendMode);
+
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Emotion tagging initialized with blend mode: {avatar.faceBlendMode}");
         }
 
         #endregion

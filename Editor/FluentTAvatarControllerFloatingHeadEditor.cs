@@ -6,7 +6,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
     [CustomEditor(typeof(FluentTAvatarControllerFloatingHead))]
     public class FluentTAvatarControllerFloatingHeadEditor : UnityEditor.Editor
     {
-        private string[] _tabNames = { "Body Animation", "Look Target", "Emotion Tagging", "Server Motion Tagging", "Eye Blink" };
+        private string[] _tabNames = { "Look Target", "Emotion Tagging", "Server Motion Tagging", "Eye Blink", "Default Animation" };
 
         private string SessionStateKey => $"FluentTAvatarControllerFloatingHead_SelectedTab_{target.GetInstanceID()}";
 
@@ -28,43 +28,35 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             // Draw content based on selected tab
             switch (selectedTab)
             {
-                case 0: // Body Animation
-                    DrawBodyAnimationSettings();
-                    break;
-                case 1: // Look Target
+                case 0: // Look Target
                     DrawLookTargetSettings();
                     break;
-                case 2: // Emotion Tagging
+                case 1: // Emotion Tagging
                     DrawEmotionTaggingSettings();
                     break;
-                case 3: // Server Motion Tagging
+                case 2: // Server Motion Tagging
                     DrawServerMotionTaggingSettings();
                     break;
-                case 4: // Eye Blink
+                case 3: // Eye Blink
                     DrawEyeBlinkSettings();
+                    break;
+                case 4: // Default Animation
+                    DrawDefaultAnimationSettings();
                     break;
             }
 
             serializedObject.ApplyModifiedProperties();
         }
 
-        private void DrawBodyAnimationSettings()
-        {
-            EditorGUILayout.LabelField("Body Animation Settings", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("avatar"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("animatorController"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("idleClips"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("talkingClips"));
-
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Body Animation Blend Settings", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("talkingBlendTime"));
-        }
-
         private void DrawLookTargetSettings()
         {
             var controller = (FluentTAvatarControllerFloatingHead)target;
 
+            EditorGUILayout.LabelField("References", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("avatar"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("animatorController"));
+
+            EditorGUILayout.Space();
             EditorGUILayout.LabelField("Look Target Settings", EditorStyles.boldLabel);
 
             // Track enableLookTarget changes
@@ -228,6 +220,18 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         {
             EditorGUILayout.LabelField("Client-Side Emotion Tagging Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("enableClientEmotionTagging"));
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Blend Mode", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Blend Mode determines how emotion animations combine with other animations:\n\n" +
+                "• Override: Replaces current blend shape values (use when emotions should fully control facial expressions)\n" +
+                "• Additive: Adds to current values (use to layer emotions on top of other animations)\n" +
+                "• SoftMax2D: Smooth maximum blending (natural blending when multiple animations affect same blend shapes)",
+                MessageType.Info);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("emotionBlendMode"));
+
+            EditorGUILayout.Space();
             EditorGUILayout.PropertyField(serializedObject.FindProperty("maxEmotionTagsPerSentence"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("wordEmotionMappings"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("emotionMotionMappings"));
@@ -277,6 +281,27 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 $"Blink will occur every {minInterval:F1}s to {maxInterval:F1}s\n" +
                 $"Average: {interval:F1}s",
                 MessageType.None);
+        }
+
+        private void DrawDefaultAnimationSettings()
+        {
+            EditorGUILayout.LabelField("Default Idle Animation Settings", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Default Idle Animation Clip Override\n\n" +
+                "How it works:\n" +
+                "1. The Animator Controller has a dummy state called 'default_dummy' that plays continuously\n" +
+                "2. By assigning an AnimationClip here, you can override 'default_dummy' with your own idle pose + facial expression\n" +
+                "3. This animation will play as the default state when no other animations are active\n\n" +
+                "Requirements:\n" +
+                "• Your animation clip should contain both body pose and facial expression (blend shapes)\n" +
+                "• The animation should be loopable for seamless playback\n" +
+                "• Bone hierarchy paths in the clip must match your avatar's hierarchy",
+                MessageType.Info);
+
+            EditorGUILayout.Space();
+
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("defaultIdleAnimationClip"),
+                new GUIContent("Default Idle Animation", "Animation clip to override default_dummy state"));
         }
 
         #region Look Target Rig Auto-Setup

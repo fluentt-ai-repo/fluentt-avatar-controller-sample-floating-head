@@ -15,7 +15,9 @@ namespace FluentT.Avatar.SampleFloatingHead
     /// </summary>
     public partial class FluentTAvatarControllerFloatingHead
     {
-        private TimelineAnimatorClip timelineServerMotionTagging;
+        private int currentEmotionSlot = 0; // Alternates between 0 and 1
+        private const string EMOTION_DUMMY_0 = "emotion_dummy_0";
+        private const string EMOTION_DUMMY_1 = "emotion_dummy_1";
 
         #region Server Motion Tagging Initialization
 
@@ -35,13 +37,6 @@ namespace FluentT.Avatar.SampleFloatingHead
                 Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Override controller not found. Server motion tagging will not work.");
                 return;
             }
-
-            // Create timeline for server motion tagging with custom dummy clips
-            timelineServerMotionTagging = new TimelineAnimatorClip(animator, overrideController,
-                "DummyServerMotion 0",
-                "DummyServerMotion 1",
-                "DummyServerMotion 2");
-            timelineServerMotionTagging.SetEnableOverlap(true);
 
             Debug.Log("[FluentTAvatarControllerFloatingHead] Server motion tagging initialized");
         }
@@ -74,24 +69,47 @@ namespace FluentT.Avatar.SampleFloatingHead
         }
 
         /// <summary>
-        /// Play server motion animation
+        /// Play server motion animation using animator triggers and override controller
         /// </summary>
         private void PlayServerMotion(ServerMotionTagMapping motionMapping)
         {
-            if (animator == null || motionMapping.animationClip == null)
+            if (animator == null || overrideController == null || motionMapping.animationClip == null)
                 return;
 
-            // Set layer weight
-            if (animator.layerCount >= 3) // Layer 2 = Server Motion Layer
+            // Determine which slot to use (alternate between 0 and 1)
+            string dummyClipName = currentEmotionSlot == 0 ? EMOTION_DUMMY_0 : EMOTION_DUMMY_1;
+            string triggerName = currentEmotionSlot == 0 ? "emotion0" : "emotion1";
+
+            // Override the dummy clip with the actual animation
+            overrideController[dummyClipName] = motionMapping.animationClip;
+
+            // Set layer weight (optional, for blending)
+            int serverMotionLayerIndex = GetLayerIndex("Server Motion Tagging");
+            if (serverMotionLayerIndex >= 0)
             {
-                animator.SetLayerWeight(2, motionMapping.blendWeight);
+                animator.SetLayerWeight(serverMotionLayerIndex, motionMapping.blendWeight);
             }
 
-            // Play animation with crossfade
-            float fadeDuration = 0.2f; // 0.2 second crossfade
-            animator.CrossFadeInFixedTime(motionMapping.animationClip.name, fadeDuration, 2); // Layer 2
+            // Trigger the animation state
+            animator.SetTrigger(triggerName);
 
-            Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing server motion: {motionMapping.emotionTag}");
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing server motion: {motionMapping.emotionTag} on slot {currentEmotionSlot} with trigger {triggerName}");
+
+            // Alternate slot for next call
+            currentEmotionSlot = 1 - currentEmotionSlot;
+        }
+
+        /// <summary>
+        /// Get layer index by name
+        /// </summary>
+        private int GetLayerIndex(string layerName)
+        {
+            for (int i = 0; i < animator.layerCount; i++)
+            {
+                if (animator.GetLayerName(i) == layerName)
+                    return i;
+            }
+            return -1;
         }
 
         #endregion
@@ -103,7 +121,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         public void ProcessServerMotionTagging(TalkMotionData data)
         {
-            if (!enableServerMotionTagging || data?.taggedMotion == null || timelineServerMotionTagging == null)
+            if (!enableServerMotionTagging || data?.taggedMotion == null)
                 return;
 
             var taggedMotion = data.taggedMotion;
@@ -118,14 +136,8 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
             }
 
-            // Start timeline if not already running
-            if (!timelineServerMotionTagging.IsRunning)
-            {
-                timelineServerMotionTagging.Play();
-            }
-
-            // Apply the motion with timing estimation
-            ApplyServerMotion(motionMapping, taggedMotion, data.audioClip?.length ?? 0f);
+            // Play the motion immediately (timing handled by callback)
+            PlayServerMotion(motionMapping);
         }
 
         /// <summary>
@@ -135,79 +147,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             return serverMotionTagMappings.FirstOrDefault(m =>
                 string.Equals(m.emotionTag, emotionTag, StringComparison.OrdinalIgnoreCase));
-        }
-
-        /// <summary>
-        /// Apply server motion to timeline
-        /// </summary>
-        private void ApplyServerMotion(ServerMotionTagMapping motionMapping, TaggedMotionContent taggedMotion, float audioDuration)
-        {
-            if (timelineServerMotionTagging == null || motionMapping.animationClip == null)
-                return;
-
-            var animationClip = motionMapping.animationClip;
-
-            // Estimate timing based on word position in sentence
-            float startTime = EstimateServerMotionTiming(taggedMotion.word_index, taggedMotion.total_words, audioDuration);
-
-            // Determine duration
-            float duration = motionMapping.durationOverride > 0f ?
-                motionMapping.durationOverride :
-                animationClip.length;
-
-            // Create animator clip element
-            var animatorElement = new AnimatorClipElement(animationClip);
-
-            // Create time slot with fade in/out
-            var timeSlot = new TimeSlot(
-                timelineServerMotionTagging.CurrentTime + startTime,
-                duration,
-                0.2f, // fade in
-                0.2f  // fade out
-            );
-
-            // Set layer weight if different from 1.0
-            if (motionMapping.blendWeight != 1.0f)
-            {
-                // Note: Layer weight is set on the Animator, not per clip
-                // You may need to handle this differently based on your requirements
-                animator.SetLayerWeight(2, motionMapping.blendWeight);
-            }
-
-            timelineServerMotionTagging.Reserve(timeSlot, animatorElement);
-
-            Debug.Log($"[FluentTAvatarControllerFloatingHead] Applied server motion '{motionMapping.emotionTag}' for word '{taggedMotion.word}' at time {startTime:F2}s, duration {duration:F2}s, confidence {taggedMotion.confidence:F2}");
-        }
-
-        /// <summary>
-        /// Estimate timing for server motion tag based on word position
-        /// </summary>
-        private float EstimateServerMotionTiming(int wordIndex, int totalWords, float audioDuration)
-        {
-            if (totalWords <= 0 || audioDuration <= 0f)
-                return 0f;
-
-            // Linear estimation based on word position
-            float normalizedPosition = (float)wordIndex / totalWords;
-            float estimatedTime = normalizedPosition * audioDuration;
-
-            return Mathf.Max(0f, estimatedTime);
-        }
-
-        private void UpdateServerMotionTaggingTimeline(float deltaTime)
-        {
-            if (timelineServerMotionTagging != null)
-            {
-                timelineServerMotionTagging.Update(deltaTime);
-            }
-        }
-
-        private void LateUpdateServerMotionTaggingTimeline(float deltaTime)
-        {
-            if (timelineServerMotionTagging != null)
-            {
-                timelineServerMotionTagging.LateUpdate(deltaTime);
-            }
         }
 
         #endregion
