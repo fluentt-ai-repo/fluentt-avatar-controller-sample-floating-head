@@ -60,7 +60,6 @@ namespace FluentT.Avatar.SampleFloatingHead
     public class EyeBlendShapes
     {
         [Range(0f, 10f)]
-        [Tooltip("Global scale applied to all eye blend shapes")]
         public float globalScale = 1.0f;
 
         public List<EyeBlendShape> eyeLookUpLeftIdx;

@@ -6,7 +6,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
     [CustomEditor(typeof(FluentTAvatarControllerFloatingHead))]
     public class FluentTAvatarControllerFloatingHeadEditor : UnityEditor.Editor
     {
-        private string[] _tabNames = { "Default Animation", "Look Target", "Emotion Tagging", "Server Motion Tagging", "Eye Blink" };
+        private string[] _tabNames = { "Default Animation", "Look Target", /*"Emotion Tagging",*/ "Server Motion Tagging", "Eye Blink" };
 
         private string SessionStateKey => $"FluentTAvatarControllerFloatingHead_SelectedTab_{target.GetInstanceID()}";
 
@@ -34,13 +34,13 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 case 1: // Look Target
                     DrawLookTargetSettings();
                     break;
-                case 2: // Emotion Tagging
-                    DrawEmotionTaggingSettings();
-                    break;
-                case 3: // Server Motion Tagging
+                //case 2: // Emotion Tagging
+                //    DrawEmotionTaggingSettings();
+                //    break;
+                case 2: // Server Motion Tagging
                     DrawServerMotionTaggingSettings();
                     break;
-                case 4: // Eye Blink
+                case 3: // Eye Blink
                     DrawEyeBlinkSettings();
                     break;
             }
@@ -52,11 +52,6 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         {
             var controller = (FluentTAvatarControllerFloatingHead)target;
 
-            EditorGUILayout.LabelField("References", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("avatar"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("animatorController"));
-
-            EditorGUILayout.Space();
             EditorGUILayout.LabelField("Look Target Settings", EditorStyles.boldLabel);
 
             // Track enableLookTarget changes
@@ -216,6 +211,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             }
         }
 
+        /*
         private void DrawEmotionTaggingSettings()
         {
             EditorGUILayout.LabelField("Client-Side Emotion Tagging Settings", EditorStyles.boldLabel);
@@ -236,6 +232,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("wordEmotionMappings"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("emotionMotionMappings"));
         }
+        */
 
         private void DrawServerMotionTaggingSettings()
         {
@@ -285,6 +282,13 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
         private void DrawDefaultAnimationSettings()
         {
+            EditorGUILayout.LabelField("References", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("avatar"),
+                new GUIContent("Avatar", "FluentTAvatar component reference"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("animatorController"),
+                new GUIContent("Animator Controller", "Runtime Animator Controller for body animations (required for Default Idle and Server Motion Tagging)"));
+
+            EditorGUILayout.Space();
             EditorGUILayout.LabelField("Default Idle Animation Settings", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
                 "Default Idle Animation Clip Override\n\n" +
@@ -293,6 +297,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 "2. By assigning an AnimationClip here, you can override 'default_dummy' with your own idle pose + facial expression\n" +
                 "3. This animation will play as the default state when no other animations are active\n\n" +
                 "Requirements:\n" +
+                "• Animator Controller must be assigned above\n" +
                 "• Your animation clip should contain both body pose and facial expression (blend shapes)\n" +
                 "• The animation should be loopable for seamless playback\n" +
                 "• Bone hierarchy paths in the clip must match your avatar's hierarchy",

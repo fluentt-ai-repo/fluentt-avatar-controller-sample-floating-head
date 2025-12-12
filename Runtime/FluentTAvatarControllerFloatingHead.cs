@@ -21,7 +21,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] private RuntimeAnimatorController animatorController;
 
         [Header("Default Idle Animation")]
-        [Tooltip("Default idle pose and facial expression animation clip (overrides default_dummy)")]
         [SerializeField] private AnimationClip defaultIdleAnimationClip;
 
         [Header("Look Target")]
@@ -29,11 +28,8 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] private Transform lookTarget;
 
         [Header("Animation Rigging Multi-Aim Constraints")]
-        [Tooltip("Multi-Aim Constraint for head tracking (required)")]
         [SerializeField] private MultiAimConstraint headAimConstraint;
-        [Tooltip("Multi-Aim Constraint for left eye tracking (optional, only for Transform strategy)")]
         [SerializeField] private MultiAimConstraint leftEyeAimConstraint;
-        [Tooltip("Multi-Aim Constraint for right eye tracking (optional, only for Transform strategy)")]
         [SerializeField] private MultiAimConstraint rightEyeAimConstraint;
 
         [Header("Look Target Transforms - For Auto-Find")]
@@ -60,33 +56,18 @@ namespace FluentT.Avatar.SampleFloatingHead
         };
 
         [Header("Client-Side Emotion Tagging")]
-        [Tooltip("Enable client-side emotion tagging (uses TMAnimationClip for face)")]
         [SerializeField] public bool enableClientEmotionTagging = false;
-
-        [Tooltip("Max emotion tags per sentence")]
         [SerializeField] public int maxEmotionTagsPerSentence = 1;
-
-        [Tooltip("Word to emotion tag mappings")]
         [SerializeField] public List<WordEmotionMapping> wordEmotionMappings = new List<WordEmotionMapping>();
-
-        [Tooltip("Emotion tag to motion mappings")]
         [SerializeField] public List<EmotionMotionMapping> emotionMotionMappings = new List<EmotionMotionMapping>();
 
         [Header("Server-Side Motion Tagging")]
-        [Tooltip("Enable server-side motion tagging (uses AnimationClip for body)")]
         [SerializeField] public bool enableServerMotionTagging = false;
-
-        [Tooltip("Emotion tag to animation clip mappings")]
         [SerializeField] public List<ServerMotionTagMapping> serverMotionTagMappings = new List<ServerMotionTagMapping>();
 
         [Header("Eye Blink")]
-        [Tooltip("Enable automatic eye blink")]
         [SerializeField] public bool enableEyeBlink = false;
-
-        [Tooltip("Average time between blinks in seconds")]
         [SerializeField] [Range(1f, 10f)] public float blinkInterval = 3f;
-
-        [Tooltip("Random variance in blink timing (±seconds)")]
         [SerializeField] [Range(0f, 5f)] public float blinkIntervalVariance = 1f;
 
         // Private state
@@ -322,16 +303,9 @@ namespace FluentT.Avatar.SampleFloatingHead
     [System.Serializable]
     public class WordEmotionMapping
     {
-        [Tooltip("Word or phrase to match (case-insensitive)")]
         public string word;
-
-        [Tooltip("Emotion tag to apply")]
         public string emotionTag;
-
-        [Tooltip("Priority (higher values take precedence)")]
         public int priority = 1;
-
-        [Tooltip("Use partial matching (contains)")]
         public bool partialMatch = false;
     }
 
@@ -341,17 +315,10 @@ namespace FluentT.Avatar.SampleFloatingHead
     [System.Serializable]
     public class EmotionMotionMapping
     {
-        [Tooltip("Emotion tag")]
         public string emotionTag;
-
-        [Tooltip("Animation clip to play")]
         public TMAnimationClip animationClip;
-
-        [Tooltip("Blend weight (0-1)")]
         [Range(0f, 1f)]
         public float blendWeight = 1f;
-
-        [Tooltip("Duration override (0 = use clip length)")]
         public float durationOverride = 0f;
     }
 
@@ -361,17 +328,10 @@ namespace FluentT.Avatar.SampleFloatingHead
     [System.Serializable]
     public class ServerMotionTagMapping
     {
-        [Tooltip("Emotion tag from server")]
         public string emotionTag;
-
-        [Tooltip("Body animation clip to play (UnityEngine.AnimationClip)")]
         public AnimationClip animationClip;
-
-        [Tooltip("Blend weight (0-1)")]
         [Range(0f, 1f)]
         public float blendWeight = 1f;
-
-        [Tooltip("Duration override (0 = use clip length)")]
         public float durationOverride = 0f;
     }
 
