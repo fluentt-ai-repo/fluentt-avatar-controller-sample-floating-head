@@ -6,7 +6,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
     [CustomEditor(typeof(FluentTAvatarControllerFloatingHead))]
     public class FluentTAvatarControllerFloatingHeadEditor : UnityEditor.Editor
     {
-        private string[] _tabNames = { "Look Target", "Emotion Tagging", "Server Motion Tagging", "Eye Blink", "Default Animation" };
+        private string[] _tabNames = { "Default Animation", "Look Target", "Emotion Tagging", "Server Motion Tagging", "Eye Blink" };
 
         private string SessionStateKey => $"FluentTAvatarControllerFloatingHead_SelectedTab_{target.GetInstanceID()}";
 
@@ -28,20 +28,20 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             // Draw content based on selected tab
             switch (selectedTab)
             {
-                case 0: // Look Target
+                case 0: // Default Animation
+                    DrawDefaultAnimationSettings();
+                    break;
+                case 1: // Look Target
                     DrawLookTargetSettings();
                     break;
-                case 1: // Emotion Tagging
+                case 2: // Emotion Tagging
                     DrawEmotionTaggingSettings();
                     break;
-                case 2: // Server Motion Tagging
+                case 3: // Server Motion Tagging
                     DrawServerMotionTaggingSettings();
                     break;
-                case 3: // Eye Blink
+                case 4: // Eye Blink
                     DrawEyeBlinkSettings();
-                    break;
-                case 4: // Default Animation
-                    DrawDefaultAnimationSettings();
                     break;
             }
 

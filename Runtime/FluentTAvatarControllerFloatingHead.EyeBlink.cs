@@ -12,6 +12,7 @@ namespace FluentT.Avatar.SampleFloatingHead
     {
         private Coroutine blinkCoroutine;
         private List<BlendShapeInfo> blinkBlendShapes = new List<BlendShapeInfo>();
+        private float currentBlinkWeight = 0f; // Current blink weight (updated in coroutine, applied in LateUpdate)
 
         /// <summary>
         /// Stores blend shape information for efficient access
@@ -156,15 +157,28 @@ namespace FluentT.Avatar.SampleFloatingHead
         }
 
         /// <summary>
-        /// Set blend shape weight for all blink blend shapes
+        /// Set blend shape weight for all blink blend shapes (stores value, applied in ApplyBlinkWeight)
+        /// This method is called from coroutine (Update timing) and only updates the target weight
         /// </summary>
         private void SetBlinkWeight(float weight)
         {
+            currentBlinkWeight = weight;
+        }
+
+        /// <summary>
+        /// Apply the current blink weight to blend shapes
+        /// Called from OnAvatarLateUpdateCompleted to ensure it runs AFTER avatar animation
+        /// </summary>
+        private void ApplyBlinkWeight()
+        {
+            if (!enableEyeBlink)
+                return;
+
             foreach (var info in blinkBlendShapes)
             {
                 if (info.renderer != null)
                 {
-                    info.renderer.SetBlendShapeWeight(info.blendShapeIndex, weight);
+                    info.renderer.SetBlendShapeWeight(info.blendShapeIndex, currentBlinkWeight);
                 }
             }
         }
@@ -203,7 +217,8 @@ namespace FluentT.Avatar.SampleFloatingHead
                     StopCoroutine(blinkCoroutine);
                     blinkCoroutine = null;
                 }
-                SetBlinkWeight(0f);
+                currentBlinkWeight = 0f;
+                ApplyBlinkWeight(); // Immediately reset blend shapes to open
             }
         }
 

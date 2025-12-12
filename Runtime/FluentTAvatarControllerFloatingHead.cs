@@ -230,6 +230,12 @@ namespace FluentT.Avatar.SampleFloatingHead
             {
                 LateUpdateLookTarget();
             }
+
+            // Apply eye blink after avatar animation to prevent overwriting
+            if (enableEyeBlink)
+            {
+                ApplyBlinkWeight();
+            }
         }
 
         private void OnDestroy()
