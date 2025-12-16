@@ -1,6 +1,6 @@
 {
   "name": "com.fluentt.avatar-controller-sample-floating-head",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "FluentT Avatar Controller Sample - Floating Head",
   "description": "Floating head variant of avatar controller for FluentT Talkmotion. Optimized for head-only avatars with eye blink and look target controls.",
   "unity": "2022.3",
@@ -12,7 +12,7 @@
     "talkmotion"
   ],
   "author": {
-    "name": "FluentT AI",
+    "name": "FluentT",
     "url": "https://fluentt.ai"
   },
   "dependencies": {
