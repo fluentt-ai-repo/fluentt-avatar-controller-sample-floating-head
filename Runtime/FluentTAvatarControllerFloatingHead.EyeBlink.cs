@@ -1,35 +1,20 @@
 using System.Collections;
-using System.Collections.Generic;
+using FluentT.Animation;
 using UnityEngine;
 
 namespace FluentT.Avatar.SampleFloatingHead
 {
     /// <summary>
     /// Eye Blink control partial class
-    /// Simple coroutine-based eye blinking without Timeline dependency
+    /// TMAnimationClip-based eye blinking with customizable animation
     /// </summary>
     public partial class FluentTAvatarControllerFloatingHead
     {
         private Coroutine blinkCoroutine;
-        private List<BlendShapeInfo> blinkBlendShapes = new List<BlendShapeInfo>();
-        private float currentBlinkWeight = 0f; // Current blink weight (updated in coroutine, applied in LateUpdate)
+        private TMAnimationClip activeBlinkClip;
 
-        /// <summary>
-        /// Stores blend shape information for efficient access
-        /// </summary>
-        private class BlendShapeInfo
-        {
-            public SkinnedMeshRenderer renderer;
-            public int blendShapeIndex;
-            public string blendShapeName;
-
-            public BlendShapeInfo(SkinnedMeshRenderer renderer, int index, string name)
-            {
-                this.renderer = renderer;
-                this.blendShapeIndex = index;
-                this.blendShapeName = name;
-            }
-        }
+        // Blink animation layer index (uses a dedicated layer for eye blink)
+        private const int BLINK_LAYER_INDEX = 2;
 
         #region Eye Blink Initialization
 
@@ -44,12 +29,12 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
             }
 
-            // Find blend shapes for eye blink (eyeBlinkLeft, eyeBlinkRight)
-            FindBlinkBlendShapes();
+            // Use provided clip or create default
+            activeBlinkClip = blinkClip ?? CreateDefaultBlinkClip();
 
-            if (blinkBlendShapes.Count == 0)
+            if (activeBlinkClip == null)
             {
-                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] No eye blink blend shapes found (eyeBlinkLeft, eyeBlinkRight)");
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Failed to create blink clip");
                 return;
             }
 
@@ -60,40 +45,50 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
             blinkCoroutine = StartCoroutine(BlinkRoutine());
 
-            Debug.Log($"[FluentTAvatarControllerFloatingHead] Eye blink initialized with {blinkBlendShapes.Count} blend shapes");
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Eye blink initialized with clip: {activeBlinkClip.name}");
         }
 
         /// <summary>
-        /// Find eyeBlinkLeft and eyeBlinkRight blend shapes in avatar's skinned mesh renderers
+        /// Create default ARKit-based blink animation clip
+        /// Timing: 0s(0) -> 0.06s(100) -> 0.08s(100) -> 0.18s(0)
         /// </summary>
-        private void FindBlinkBlendShapes()
+        private TMAnimationClip CreateDefaultBlinkClip()
         {
-            blinkBlendShapes.Clear();
-
-            if (head_skmr == null || head_skmr.Count == 0)
-                return;
-
-            string[] blinkShapeNames = { "eyeBlinkLeft", "eyeBlinkRight" };
-
-            foreach (var skmr in head_skmr)
+            TMAnimationClip clip = new()
             {
-                if (skmr == null || skmr.sharedMesh == null)
-                    continue;
+                name = "DefaultEyeBlink",
+                repeat = false
+            };
 
-                for (int i = 0; i < skmr.sharedMesh.blendShapeCount; i++)
+            clip.Type = TMAnimationClip.AnimationType.Humanoid;
+
+            // Create curve data for ARKit format (empty relative path)
+            TMCurveData curveData = new("");
+
+            const float maxWeight = 100f;
+
+            // Create curves for both eyes
+            string[] blinkShapes = { "eyeBlinkLeft", "eyeBlinkRight" };
+
+            foreach (string shapeName in blinkShapes)
+            {
+                TMAnimationCurve curve = new()
                 {
-                    string shapeName = skmr.sharedMesh.GetBlendShapeName(i);
-                    foreach (string targetName in blinkShapeNames)
-                    {
-                        if (shapeName == targetName)
-                        {
-                            blinkBlendShapes.Add(new BlendShapeInfo(skmr, i, shapeName));
-                            Debug.Log($"[FluentTAvatarControllerFloatingHead] Found blink blend shape: {shapeName} at index {i}");
-                            break;
-                        }
-                    }
-                }
+                    key = shapeName
+                };
+
+                // Keyframes: 0s(0) -> 0.06s(100) -> 0.08s(100) -> 0.18s(0)
+                curve.AddKeyFrame(new TMKeyframe { t = 0f, v = 0f });
+                curve.AddKeyFrame(new TMKeyframe { t = 0.06f, v = maxWeight });
+                curve.AddKeyFrame(new TMKeyframe { t = 0.08f, v = maxWeight });
+                curve.AddKeyFrame(new TMKeyframe { t = 0.18f, v = 0f });
+
+                curveData.AddBlendCurve(curve);
             }
+
+            clip.AddCurveData(curveData);
+
+            return clip;
         }
 
         #endregion
@@ -112,75 +107,26 @@ namespace FluentT.Avatar.SampleFloatingHead
                 float delay = Mathf.Max(0.1f, blinkInterval + variance);
                 yield return new WaitForSeconds(delay);
 
-                // Perform blink animation
-                yield return StartCoroutine(PerformBlink());
+                // Play blink animation
+                PlayBlinkAnimation();
             }
         }
 
         /// <summary>
-        /// Performs a single blink animation
-        /// Natural timing: close quickly (0.06s) -> hold (0.02s) -> open slowly (0.10s)
+        /// Play the blink animation clip
         /// </summary>
-        private IEnumerator PerformBlink()
+        private void PlayBlinkAnimation()
         {
-            const float closeTime = 0.06f;  // Close quickly
-            const float holdTime = 0.02f;   // Hold closed briefly
-            const float openTime = 0.10f;   // Open slowly
-            const float maxWeight = 100f;   // Full close
-
-            // Phase 1: Close eyes quickly (0 -> 100)
-            float elapsed = 0f;
-            while (elapsed < closeTime)
-            {
-                float t = elapsed / closeTime;
-                float weight = Mathf.Lerp(0f, maxWeight, t);
-                SetBlinkWeight(weight);
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-            SetBlinkWeight(maxWeight);
-
-            // Phase 2: Hold closed
-            yield return new WaitForSeconds(holdTime);
-
-            // Phase 3: Open eyes slowly (100 -> 0)
-            elapsed = 0f;
-            while (elapsed < openTime)
-            {
-                float t = elapsed / openTime;
-                float weight = Mathf.Lerp(maxWeight, 0f, t);
-                SetBlinkWeight(weight);
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-            SetBlinkWeight(0f);
-        }
-
-        /// <summary>
-        /// Set blend shape weight for all blink blend shapes (stores value, applied in ApplyBlinkWeight)
-        /// This method is called from coroutine (Update timing) and only updates the target weight
-        /// </summary>
-        private void SetBlinkWeight(float weight)
-        {
-            currentBlinkWeight = weight;
-        }
-
-        /// <summary>
-        /// Apply the current blink weight to blend shapes
-        /// Called from OnAvatarLateUpdateCompleted to ensure it runs AFTER avatar animation
-        /// </summary>
-        private void ApplyBlinkWeight()
-        {
-            if (!enableEyeBlink)
+            if (avatar == null || avatar.TMAnimationComponent == null || activeBlinkClip == null)
                 return;
 
-            foreach (var info in blinkBlendShapes)
-            {
-                if (info.renderer != null)
-                {
-                    info.renderer.SetBlendShapeWeight(info.blendShapeIndex, currentBlinkWeight);
-                }
-            }
+            // Play on dedicated blink layer with Override mode
+            avatar.TMAnimationComponent.Play(
+                activeBlinkClip,
+                BLINK_LAYER_INDEX,
+                TMAnimationLayer.UpdatePhase.LateUpdate,
+                startImmediately: true
+            );
         }
 
         #endregion
@@ -199,8 +145,8 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             if (enabled)
             {
-                // Start or resume blinking
-                if (blinkBlendShapes.Count == 0)
+                // Initialize if not already done
+                if (activeBlinkClip == null)
                 {
                     InitializeEyeBlink();
                 }
@@ -211,15 +157,41 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
             else
             {
-                // Stop blinking and reset eyes to open
+                // Stop blinking
                 if (blinkCoroutine != null)
                 {
                     StopCoroutine(blinkCoroutine);
                     blinkCoroutine = null;
                 }
-                currentBlinkWeight = 0f;
-                ApplyBlinkWeight(); // Immediately reset blend shapes to open
+
+                // Stop any playing blink animation
+                if (avatar != null && avatar.TMAnimationComponent != null)
+                {
+                    var layer = avatar.TMAnimationComponent.GetLayer(BLINK_LAYER_INDEX, TMAnimationLayer.UpdatePhase.LateUpdate);
+                    layer?.Stop();
+                }
             }
+        }
+
+        /// <summary>
+        /// Set a custom blink clip at runtime
+        /// </summary>
+        public void SetBlinkClip(TMAnimationClip clip)
+        {
+            blinkClip = clip;
+            activeBlinkClip = clip ?? CreateDefaultBlinkClip();
+        }
+
+        /// <summary>
+        /// Trigger a single blink immediately
+        /// </summary>
+        public void TriggerBlink()
+        {
+            if (activeBlinkClip == null)
+            {
+                activeBlinkClip = blinkClip ?? CreateDefaultBlinkClip();
+            }
+            PlayBlinkAnimation();
         }
 
         #endregion

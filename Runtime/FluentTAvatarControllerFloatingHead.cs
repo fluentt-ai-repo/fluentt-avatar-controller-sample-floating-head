@@ -67,6 +67,8 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         [Header("Eye Blink")]
         [SerializeField] public bool enableEyeBlink = false;
+        [Tooltip("Eye blink animation clip (if null, uses default ARKit eyeBlink animation)")]
+        [SerializeField] public TMAnimationClip blinkClip = null;
         [SerializeField] [Range(1f, 10f)] public float blinkInterval = 3f;
         [SerializeField] [Range(0f, 5f)] public float blinkIntervalVariance = 1f;
 
@@ -212,11 +214,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 LateUpdateLookTarget();
             }
 
-            // Apply eye blink after avatar animation to prevent overwriting
-            if (enableEyeBlink)
-            {
-                ApplyBlinkWeight();
-            }
+            // Eye blink is handled by TMAnimationComponent on dedicated layer
         }
 
         private void OnDestroy()
