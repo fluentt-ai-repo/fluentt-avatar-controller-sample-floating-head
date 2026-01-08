@@ -236,6 +236,9 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         /// <summary>
         /// Update tracking GameObject states based on enable flags
+        /// Note: We keep tracking GameObjects active for smooth weight transition.
+        /// Only disable when the feature itself (enableLookTarget) is disabled.
+        /// Weight transition handles the actual enable/disable smoothly via constraint weights.
         /// </summary>
         private void UpdateTrackingGameObjectStates()
         {
@@ -243,28 +246,29 @@ namespace FluentT.Avatar.SampleFloatingHead
             if (targetTracking == null)
                 return;
 
-            // Control HeadTracking based on enableHeadControl
+            // HeadTracking is always active when Look Target is enabled
+            // Weight transition handles smooth enable/disable via constraint weight
             Transform headTracking = targetTracking.Find("HeadTracking");
             if (headTracking != null)
             {
-                headTracking.gameObject.SetActive(enableHeadControl);
+                headTracking.gameObject.SetActive(true);
             }
 
-            // Control LeftEyeTracking and RightEyeTracking based on enableEyeControl and strategy
+            // Control LeftEyeTracking and RightEyeTracking based on strategy only
+            // BlendWeightFluentt doesn't need eye tracking GameObjects at all
             Transform leftEyeTracking = targetTracking.Find("LeftEyeTracking");
             Transform rightEyeTracking = targetTracking.Find("RightEyeTracking");
 
-            // BlendWeightFluentt doesn't need eye tracking GameObjects
-            bool needEyeTracking = enableEyeControl && eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt;
+            bool useTransformEyeTracking = eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt;
 
             if (leftEyeTracking != null)
             {
-                leftEyeTracking.gameObject.SetActive(needEyeTracking);
+                leftEyeTracking.gameObject.SetActive(useTransformEyeTracking);
             }
 
             if (rightEyeTracking != null)
             {
-                rightEyeTracking.gameObject.SetActive(needEyeTracking);
+                rightEyeTracking.gameObject.SetActive(useTransformEyeTracking);
             }
         }
 

@@ -357,8 +357,6 @@ namespace FluentT.Avatar.SampleFloatingHead
                 }
             }
 
-            // Update constraint weights
-            UpdateConstraintWeights();
         }
 
         /// <summary>
@@ -514,32 +512,12 @@ namespace FluentT.Avatar.SampleFloatingHead
         }
 
         /// <summary>
-        /// Update constraint weights based on enable flags
-        /// </summary>
-        private void UpdateConstraintWeights()
-        {
-            if (headAimConstraint != null)
-            {
-                headAimConstraint.weight = enableHeadControl ? 1f : 0f;
-            }
-
-            if (leftEyeAimConstraint != null)
-            {
-                leftEyeAimConstraint.weight = enableEyeControl ? 1f : 0f;
-            }
-
-            if (rightEyeAimConstraint != null)
-            {
-                rightEyeAimConstraint.weight = enableEyeControl ? 1f : 0f;
-            }
-        }
-
-        /// <summary>
         /// Enable look target tracking
         /// </summary>
         public void Enable()
         {
-            UpdateConstraintWeights();
+            enableHeadControl = true;
+            enableEyeControl = true;
         }
 
         /// <summary>
@@ -547,20 +525,8 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         public void Disable()
         {
-            if (headAimConstraint != null)
-            {
-                headAimConstraint.weight = 0f;
-            }
-
-            if (leftEyeAimConstraint != null)
-            {
-                leftEyeAimConstraint.weight = 0f;
-            }
-
-            if (rightEyeAimConstraint != null)
-            {
-                rightEyeAimConstraint.weight = 0f;
-            }
+            enableHeadControl = false;
+            enableEyeControl = false;
         }
 
         #region BlendShape Eye Control
