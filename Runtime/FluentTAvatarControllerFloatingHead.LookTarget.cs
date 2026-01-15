@@ -62,8 +62,8 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Control HeadTracking and EyeTracking GameObjects based on enable flags
             UpdateTrackingGameObjectStates();
 
-            // Validate Multi-Aim Constraints
-            if (headAimConstraint == null)
+            // Validate Multi-Aim Constraints (only required when head control is enabled)
+            if (enableHeadControl && headAimConstraint == null)
             {
                 Debug.LogError("[FluentTAvatarControllerFloatingHead] Head Multi-Aim Constraint not assigned! Please assign it in the Inspector.");
                 return;
