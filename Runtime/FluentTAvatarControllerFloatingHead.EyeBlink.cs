@@ -13,8 +13,10 @@ namespace FluentT.Avatar.SampleFloatingHead
         private Coroutine blinkCoroutine;
         private TMAnimationClip activeBlinkClip;
 
-        // Blink animation layer index (uses a dedicated layer for eye blink)
-        private const int BLINK_LAYER_INDEX = 2;
+        // Blink animation layer index (uses external layer for eye blink)
+        // Internal layers (negative): -3=Base face, -2=Face animation, -1=Head animation
+        // External layers (0+): Available for user/controller use
+        private const int BLINK_LAYER_INDEX = 0;
 
         #region Eye Blink Initialization
 
