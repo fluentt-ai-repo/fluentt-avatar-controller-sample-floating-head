@@ -24,7 +24,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] private AnimationClip defaultIdleAnimationClip;
 
         [Header("Look Target")]
-        [SerializeField] private bool enableLookTarget = true;
+        [SerializeField] private bool enableLookTarget = false;
         [SerializeField] private Transform lookTarget;
 
         [Header("Animation Rigging Multi-Aim Constraints")]
@@ -90,6 +90,28 @@ namespace FluentT.Avatar.SampleFloatingHead
             if (animator == null)
             {
                 animator = GetComponent<Animator>();
+            }
+
+#if UNITY_EDITOR
+            // Auto-assign animator controller from package
+            if (animatorController == null)
+            {
+                animatorController = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
+                    "Packages/com.fluentt.avatar-controller-sample-floating-head/Animation/FluentTAvatarFloatingHeadController.controller");
+            }
+
+            // Auto-assign default idle animation clip
+            if (defaultIdleAnimationClip == null)
+            {
+                defaultIdleAnimationClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    "Packages/com.fluentt.avatar-controller-sample-floating-head/Animation/idle_sample.anim");
+            }
+#endif
+
+            // Auto-create default blink clip
+            if (blinkClip == null)
+            {
+                blinkClip = CreateDefaultBlinkClip();
             }
 
             // Cache head SkinnedMeshRenderers that have blend shapes
