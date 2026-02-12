@@ -1,6 +1,8 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using FluentT.Animation;
 using FluentT.Talkmotion.Timeline;
 using FluentT.Talkmotion.Timeline.Element;
@@ -10,26 +12,35 @@ namespace FluentT.Avatar.SampleFloatingHead
 {
     /// <summary>
     /// Emotion Tagging control partial class
-    /// Handles client-side emotion detection and animation
-    /// This is a sample implementation showing how to add emotion-based animations
+    /// Handles client-side emotion detection and animation using regex-based pattern matching,
+    /// weighted probability selection, and motion duration constraints.
     /// </summary>
     public partial class FluentTAvatarControllerFloatingHead
     {
         private TimelineTMAnimation timelineEmotionTagging;
 
         /// <summary>
-        /// Detected emotion tag information
+        /// Compiled emotion pattern group - one regex per emotion tag
         /// </summary>
-        private class DetectedEmotionTag
+        private class CompiledEmotionPattern
         {
             public string emotionTag;
-            public string word;
-            public int wordIndex;
-            public int totalWords;
-            public float startTime;
-            public float duration;
-            public float confidence;
+            public Regex compiledRegex;
+            public float totalWeight;
         }
+
+        /// <summary>
+        /// Candidate emotion match found during text analysis
+        /// </summary>
+        private class EmotionCandidate
+        {
+            public string emotionTag;
+            public int matchCharIndex;
+            public float weight;
+        }
+
+        private List<CompiledEmotionPattern> compiledPatterns;
+        private Coroutine emotionProcessingCoroutine;
 
         #region Emotion Tagging Initialization
 
@@ -56,7 +67,70 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Set blend mode from FluentTAvatar's face blend mode setting
             timelineEmotionTagging.SetBlendMode(avatar.faceBlendMode);
 
-            Debug.Log($"[FluentTAvatarControllerFloatingHead] Emotion tagging initialized with blend mode: {avatar.faceBlendMode}");
+            // Compile regex patterns from dataset
+            CompileEmotionPatterns();
+
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Emotion tagging initialized with blend mode: {avatar.faceBlendMode}, {compiledPatterns?.Count ?? 0} pattern groups compiled");
+        }
+
+        /// <summary>
+        /// Compile emotion keyword entries into per-tag regex patterns.
+        /// Groups entries by emotionTag, combines patterns into a single regex per tag.
+        /// </summary>
+        private void CompileEmotionPatterns()
+        {
+            compiledPatterns = new List<CompiledEmotionPattern>();
+
+            if (emotionKeywordDataset == null || emotionKeywordDataset.Entries.Count == 0)
+                return;
+
+            // Group entries by emotionTag
+            var groups = emotionKeywordDataset.Entries
+                .Where(e => !string.IsNullOrEmpty(e.pattern) && !string.IsNullOrEmpty(e.emotionTag))
+                .GroupBy(e => e.emotionTag, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var group in groups)
+            {
+                var patterns = new List<string>();
+                float totalWeight = 0f;
+
+                foreach (var entry in group)
+                {
+                    // Validate each pattern individually
+                    try
+                    {
+                        // Test compile to check validity
+                        _ = new Regex(entry.pattern);
+                        patterns.Add($"(?:{entry.pattern})");
+                        totalWeight += entry.weight;
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        Debug.LogWarning($"[FluentTAvatarControllerFloatingHead] Invalid regex pattern '{entry.pattern}' for emotion '{entry.emotionTag}': {ex.Message}");
+                    }
+                }
+
+                if (patterns.Count == 0)
+                    continue;
+
+                // Combine all patterns for this emotion tag into one regex
+                string combinedPattern = string.Join("|", patterns);
+
+                try
+                {
+                    var compiled = new CompiledEmotionPattern
+                    {
+                        emotionTag = group.Key,
+                        compiledRegex = new Regex(combinedPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase),
+                        totalWeight = totalWeight
+                    };
+                    compiledPatterns.Add(compiled);
+                }
+                catch (ArgumentException ex)
+                {
+                    Debug.LogWarning($"[FluentTAvatarControllerFloatingHead] Failed to compile combined regex for emotion '{group.Key}': {ex.Message}");
+                }
+            }
         }
 
         #endregion
@@ -64,115 +138,157 @@ namespace FluentT.Avatar.SampleFloatingHead
         #region Client-Side Emotion Tagging
 
         /// <summary>
-        /// Process client-side emotion tagging for text
+        /// Start async emotion tagging processing via coroutine
         /// </summary>
-        private void ProcessClientEmotionTagging(string text, float audioDuration, float startTime)
+        private void StartEmotionTaggingProcessing(string text, float audioDuration, float sentenceTimelineStart)
         {
             if (!enableClientEmotionTagging || string.IsNullOrEmpty(text) || timelineEmotionTagging == null)
                 return;
 
-            var detectedTags = DetectEmotionTags(text, audioDuration);
+            if (compiledPatterns == null || compiledPatterns.Count == 0)
+                return;
 
-            if (detectedTags.Count > 0)
+            // Cancel any ongoing processing
+            if (emotionProcessingCoroutine != null)
             {
-                // Start timeline if not already running
-                if (!timelineEmotionTagging.IsRunning)
-                {
-                    timelineEmotionTagging.Play();
-                }
-
-                foreach (var tag in detectedTags)
-                {
-                    var motionMapping = GetEmotionMotionMapping(tag.emotionTag);
-                    if (motionMapping != null && motionMapping.animationClip != null)
-                    {
-                        ApplyEmotionMotion(motionMapping, tag, startTime);
-                    }
-                }
+                StopCoroutine(emotionProcessingCoroutine);
             }
+
+            emotionProcessingCoroutine = StartCoroutine(
+                ProcessEmotionTaggingAsync(text, audioDuration, sentenceTimelineStart));
         }
 
         /// <summary>
-        /// Detect emotion tags in text based on word mappings
+        /// Coroutine-based emotion tagging processing.
+        /// Starts timeline immediately, then processes regex matches and reserves animations.
         /// </summary>
-        private List<DetectedEmotionTag> DetectEmotionTags(string text, float audioDuration)
+        private IEnumerator ProcessEmotionTaggingAsync(string text, float audioDuration, float sentenceTimelineStart)
         {
-            var detectedTags = new List<DetectedEmotionTag>();
-            var words = text.Split(new char[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-
-            var candidateTags = new List<(WordEmotionMapping mapping, int wordIndex, string matchedWord)>();
-
-            // Find all potential matches
-            for (int i = 0; i < words.Length; i++)
+            // Start timeline if not already running
+            if (!timelineEmotionTagging.IsRunning)
             {
-                string word = words[i].ToLower().Trim(".,!?:;\"'".ToCharArray());
+                timelineEmotionTagging.Play();
+            }
 
-                foreach (var mapping in wordEmotionMappings)
+            // Collect all candidates from all compiled patterns
+            var candidates = new List<EmotionCandidate>();
+
+            foreach (var pattern in compiledPatterns)
+            {
+                var matches = pattern.compiledRegex.Matches(text);
+                foreach (Match match in matches)
                 {
-                    if (string.IsNullOrEmpty(mapping.word) || string.IsNullOrEmpty(mapping.emotionTag))
-                        continue;
+                    candidates.Add(new EmotionCandidate
+                    {
+                        emotionTag = pattern.emotionTag,
+                        matchCharIndex = match.Index,
+                        weight = pattern.totalWeight
+                    });
+                }
+            }
 
-                    bool isMatch = false;
-                    if (mapping.partialMatch)
-                    {
-                        isMatch = word.Contains(mapping.word.ToLower());
-                    }
-                    else
-                    {
-                        isMatch = word.Equals(mapping.word.ToLower(), StringComparison.OrdinalIgnoreCase);
-                    }
+            if (candidates.Count == 0)
+                yield break;
 
-                    if (isMatch)
+            // Weighted probability selection
+            var selectedCandidates = SelectCandidatesByWeight(candidates, maxEmotionTagsPerSentence);
+
+            // Sort selected candidates by character position (chronological order)
+            selectedCandidates.Sort((a, b) => a.matchCharIndex.CompareTo(b.matchCharIndex));
+
+            // Apply motion duration constraints and reserve animations
+            float nextAvailableTime = 0f;
+            int totalChars = text.Length;
+
+            foreach (var candidate in selectedCandidates)
+            {
+                var motionMapping = GetEmotionMotionMapping(candidate.emotionTag);
+                if (motionMapping == null || motionMapping.animationClip == null)
+                    continue;
+
+                // Estimate timing based on character position ratio
+                float estimatedTime = totalChars > 0
+                    ? (candidate.matchCharIndex / (float)totalChars) * audioDuration
+                    : 0f;
+
+                // Duration constraint: skip if overlapping with previous motion
+                if (estimatedTime < nextAvailableTime)
+                    continue;
+
+                // Get motion duration
+                var animationClip = motionMapping.animationClip;
+                if (motionMapping.blendWeight != 1.0f)
+                {
+                    animationClip = CreateWeightedAnimationClip(animationClip, motionMapping.blendWeight);
+                }
+
+                var animationElement = new TMAnimationClipElement(animationClip);
+                float duration = motionMapping.durationOverride > 0
+                    ? motionMapping.durationOverride
+                    : animationElement.GetLength();
+
+                // Reserve animation on timeline
+                var timeSlot = new TimeSlot(
+                    timelineEmotionTagging.CurrentTime + estimatedTime,
+                    duration,
+                    0.1f, // fade in
+                    0.1f  // fade out
+                );
+
+                timelineEmotionTagging.Reserve(timeSlot, animationElement);
+
+                // Update next available time
+                nextAvailableTime = estimatedTime + duration;
+
+                Debug.Log($"[FluentTAvatarControllerFloatingHead] Emotion '{motionMapping.emotionTag}' at char {candidate.matchCharIndex} → time {estimatedTime:F2}s, duration {duration:F2}s");
+
+                // Yield between reservations to spread work across frames
+                yield return null;
+            }
+
+            emotionProcessingCoroutine = null;
+        }
+
+        /// <summary>
+        /// Select candidates using weighted probability without replacement
+        /// </summary>
+        private List<EmotionCandidate> SelectCandidatesByWeight(List<EmotionCandidate> candidates, int maxCount)
+        {
+            var selected = new List<EmotionCandidate>();
+            var remaining = new List<EmotionCandidate>(candidates);
+
+            int count = Mathf.Min(maxCount, remaining.Count);
+
+            for (int i = 0; i < count; i++)
+            {
+                if (remaining.Count == 0)
+                    break;
+
+                // Calculate total weight
+                float totalWeight = 0f;
+                foreach (var c in remaining)
+                    totalWeight += c.weight;
+
+                if (totalWeight <= 0f)
+                    break;
+
+                // Random selection based on weight
+                float randomValue = UnityEngine.Random.Range(0f, totalWeight);
+                float cumulative = 0f;
+
+                for (int j = 0; j < remaining.Count; j++)
+                {
+                    cumulative += remaining[j].weight;
+                    if (randomValue <= cumulative)
                     {
-                        candidateTags.Add((mapping, i, words[i]));
+                        selected.Add(remaining[j]);
+                        remaining.RemoveAt(j);
+                        break;
                     }
                 }
             }
 
-            // Sort by priority and select up to max tags per sentence
-            candidateTags.Sort((a, b) => b.mapping.priority.CompareTo(a.mapping.priority));
-
-            var selectedTags = candidateTags.Take(maxEmotionTagsPerSentence).ToList();
-
-            // Convert to DetectedEmotionTag with timing information
-            foreach (var (mapping, wordIndex, matchedWord) in selectedTags)
-            {
-                var timing = EstimateWordTiming(wordIndex, words.Length, audioDuration);
-
-                detectedTags.Add(new DetectedEmotionTag
-                {
-                    emotionTag = mapping.emotionTag,
-                    word = matchedWord,
-                    wordIndex = wordIndex,
-                    totalWords = words.Length,
-                    startTime = timing.startTime,
-                    duration = timing.duration,
-                    confidence = 1.0f // Client-side detection has 100% confidence
-                });
-            }
-
-            return detectedTags;
-        }
-
-        /// <summary>
-        /// Estimate timing for a word within the audio duration
-        /// </summary>
-        private (float startTime, float duration) EstimateWordTiming(int wordIndex, int totalWords, float audioDuration)
-        {
-            if (totalWords <= 0)
-                return (0f, audioDuration);
-
-            // Simple linear estimation - assumes words are evenly distributed
-            float wordsPerSecond = totalWords / audioDuration;
-            float wordDuration = audioDuration / totalWords;
-            float startTime = wordIndex / (float)totalWords * audioDuration;
-
-            // Add some randomness to make it more natural
-            float variance = wordDuration * 0.2f; // 20% variance
-            startTime += UnityEngine.Random.Range(-variance, variance);
-            startTime = Mathf.Max(0f, startTime);
-
-            return (startTime, wordDuration);
+            return selected;
         }
 
         /// <summary>
@@ -182,42 +298,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             return emotionMotionMappings.FirstOrDefault(m =>
                 string.Equals(m.emotionTag, emotionTag, StringComparison.OrdinalIgnoreCase));
-        }
-
-        /// <summary>
-        /// Apply emotion motion to timeline
-        /// </summary>
-        private void ApplyEmotionMotion(EmotionMotionMapping motionMapping, DetectedEmotionTag tag, float timelineStartTime)
-        {
-            if (timelineEmotionTagging == null)
-                return;
-
-            var animationClip = motionMapping.animationClip;
-            if (animationClip == null)
-                return;
-
-            // Apply blend weight by scaling the animation clip
-            if (motionMapping.blendWeight != 1.0f)
-            {
-                animationClip = CreateWeightedAnimationClip(animationClip, motionMapping.blendWeight);
-            }
-
-            var animationElement = new TMAnimationClipElement(animationClip);
-
-            float duration = motionMapping.durationOverride > 0 ?
-                motionMapping.durationOverride :
-                animationElement.GetLength();
-
-            var timeSlot = new TimeSlot(
-                timelineEmotionTagging.CurrentTime + tag.startTime,
-                duration,
-                0.1f, // fade in
-                0.1f  // fade out
-            );
-
-            timelineEmotionTagging.Reserve(timeSlot, animationElement);
-
-            Debug.Log($"[FluentTAvatarControllerFloatingHead] Applied emotion motion '{motionMapping.emotionTag}' for word '{tag.word}' at time {timelineStartTime + tag.startTime:F2}s, duration {duration:F2}s");
         }
 
         /// <summary>

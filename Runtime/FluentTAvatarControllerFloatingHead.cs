@@ -58,7 +58,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         [Header("Client-Side Emotion Tagging")]
         [SerializeField] public bool enableClientEmotionTagging = false;
         [SerializeField] public int maxEmotionTagsPerSentence = 1;
-        [SerializeField] public List<WordEmotionMapping> wordEmotionMappings = new List<WordEmotionMapping>();
+        [SerializeField] public EmotionKeywordDataset emotionKeywordDataset;
         [SerializeField] public List<EmotionMotionMapping> emotionMotionMappings = new List<EmotionMotionMapping>();
 
         [Header("Server-Side Motion Tagging")]
@@ -262,7 +262,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             if (enableClientEmotionTagging && data != null && data.audioClip != null && !string.IsNullOrEmpty(data.text))
             {
                 float startTime = Time.time;
-                ProcessClientEmotionTagging(data.text, data.audioClip.length, startTime);
+                StartEmotionTaggingProcessing(data.text, data.audioClip.length, startTime);
             }
 
             // NOTE: Server motion tagging is now handled by OnServerMotionTag callback (called at exact timing from timeline)
@@ -316,18 +316,6 @@ namespace FluentT.Avatar.SampleFloatingHead
     }
 
     #region Data Structures for Emotion Tagging
-
-    /// <summary>
-    /// Word to emotion tag mapping
-    /// </summary>
-    [System.Serializable]
-    public class WordEmotionMapping
-    {
-        public string word;
-        public string emotionTag;
-        public int priority = 1;
-        public bool partialMatch = false;
-    }
 
     /// <summary>
     /// Emotion tag to motion mapping
