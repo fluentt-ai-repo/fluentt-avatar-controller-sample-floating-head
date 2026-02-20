@@ -5,30 +5,30 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 {
     public partial class FluentTAvatarControllerFloatingHeadEditor
     {
-        private void DrawServerMotionTaggingSettings()
+        private void DrawEmotionMotionMappingSettings()
         {
-            EditorGUILayout.LabelField("Server-Side Motion Tagging Settings", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Emotion Motion Mapping", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Server-Side Motion Tagging\n\n" +
-                "How it works:\n" +
-                "1. Server sends emotion tags at specific timestamps during speech\n" +
-                "2. Tags are received via onServerMotionTag callback at exact timing\n" +
-                "3. Triggers Unity AnimationClip animations for body movement\n\n" +
-                "Example:\n" +
-                "• Server tag 'nod' at 0.5s → Play nodding animation\n" +
-                "• Server tag 'wave' at 2.0s → Play waving animation\n\n" +
-                "Note: Uses Unity AnimationClip for body animations (full skeleton).",
+                "Emotion Motion Mapping\n\n" +
+                "Maps emotion tags to AnimationClip animations.\n" +
+                "Used by both Client Emotion Tagging and Server Motion Tagging.\n\n" +
+                "• Client: Regex-detected emotion tags trigger animations at estimated timing\n" +
+                "• Server: Server-provided emotion tags trigger animations at exact timing\n\n" +
+                "Setup:\n" +
+                "1. Add emotion tag entries (e.g. tag: \"강조\", clip: emphasis_anim)\n" +
+                "2. Assign AnimationClip and blend weight for each tag\n" +
+                "3. Enable Server Motion Tagging if server provides emotion tags",
                 MessageType.Info);
 
             EditorGUILayout.Space();
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty("enableServerMotionTagging"),
-                new GUIContent("Enable Server Motion Tagging", "Enable server-side motion tagging system"));
+                new GUIContent("Enable Server Motion Tagging", "Also receive and play emotion tags from server at exact timing"));
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Motion Tag Mappings", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("serverMotionTagMappings"),
-                new GUIContent("Server Motion Tag Mappings", "Map server emotion tags to AnimationClip animations"));
+            EditorGUILayout.LabelField("Tag → Animation Mappings", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("emotionMotionMappings"),
+                new GUIContent("Emotion Motion Mappings", "Map emotion tags to AnimationClip animations"));
         }
     }
 }

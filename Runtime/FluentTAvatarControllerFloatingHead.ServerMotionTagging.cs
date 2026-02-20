@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FluentT.APIClient.V3;
-using FluentT.Talkmotion.Timeline;
-using FluentT.Talkmotion.Timeline.Element;
 using UnityEngine;
 
 namespace FluentT.Avatar.SampleFloatingHead
@@ -46,17 +44,17 @@ namespace FluentT.Avatar.SampleFloatingHead
         #region Server Motion Tagging Callbacks
 
         /// <summary>
-        /// Called when server motion tag marker is triggered from timeline
-        /// This is called at exact timing based on word position
+        /// Called when motion tag marker is triggered from timeline.
+        /// Handles both server-provided and client-detected emotion tags.
         /// </summary>
         public void OnServerMotionTag(FluentT.APIClient.V3.TaggedMotionContent taggedMotion, FluentT.APIClient.V3.TalkMotionData data)
         {
-            if (!enableServerMotionTagging || taggedMotion == null)
+            if (taggedMotion == null)
                 return;
 
-            Debug.Log($"[FluentTAvatarControllerFloatingHead] Server motion tag triggered - Tag: {taggedMotion.tag}, Word: {taggedMotion.word}, Confidence: {taggedMotion.confidence}");
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Motion tag triggered - Tag: {taggedMotion.tag}, Word: {taggedMotion.word}, Confidence: {taggedMotion.confidence}");
 
-            // Find matching motion mapping
+            // Find matching motion mapping from shared emotionMotionMappings
             var motionMapping = GetServerMotionMapping(taggedMotion.tag);
             if (motionMapping == null || motionMapping.animationClip == null)
             {
@@ -71,7 +69,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// <summary>
         /// Play server motion animation using animator triggers and override controller
         /// </summary>
-        private void PlayServerMotion(ServerMotionTagMapping motionMapping)
+        private void PlayServerMotion(EmotionMotionMapping motionMapping)
         {
             if (animator == null || overrideController == null || motionMapping.animationClip == null)
                 return;
@@ -128,7 +126,7 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             Debug.Log($"[FluentTAvatarControllerFloatingHead] Processing server motion tag - Tag: {taggedMotion.tag}, Word: {taggedMotion.word}, Word Index: {taggedMotion.word_index}/{taggedMotion.total_words}, Confidence: {taggedMotion.confidence}");
 
-            // Find matching motion mapping
+            // Find matching motion mapping from shared emotionMotionMappings
             var motionMapping = GetServerMotionMapping(taggedMotion.tag);
             if (motionMapping == null || motionMapping.animationClip == null)
             {
@@ -141,11 +139,11 @@ namespace FluentT.Avatar.SampleFloatingHead
         }
 
         /// <summary>
-        /// Get server motion mapping by emotion tag
+        /// Get motion mapping by emotion tag from shared emotionMotionMappings
         /// </summary>
-        private ServerMotionTagMapping GetServerMotionMapping(string emotionTag)
+        private EmotionMotionMapping GetServerMotionMapping(string emotionTag)
         {
-            return serverMotionTagMappings.FirstOrDefault(m =>
+            return emotionMotionMappings.FirstOrDefault(m =>
                 string.Equals(m.emotionTag, emotionTag, StringComparison.OrdinalIgnoreCase));
         }
 

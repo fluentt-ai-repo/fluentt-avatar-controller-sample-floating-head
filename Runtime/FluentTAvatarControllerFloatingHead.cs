@@ -59,11 +59,10 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] public bool enableClientEmotionTagging = false;
         [SerializeField] public int maxEmotionTagsPerSentence = 1;
         [SerializeField] public EmotionKeywordDataset emotionKeywordDataset;
-        [SerializeField] public List<EmotionMotionMapping> emotionMotionMappings = new List<EmotionMotionMapping>();
 
-        [Header("Server-Side Motion Tagging")]
+        [Header("Emotion Motion Mapping")]
         [SerializeField] public bool enableServerMotionTagging = false;
-        [SerializeField] public List<ServerMotionTagMapping> serverMotionTagMappings = new List<ServerMotionTagMapping>();
+        [SerializeField] public List<EmotionMotionMapping> emotionMotionMappings = new List<EmotionMotionMapping>();
 
         [Header("Eye Blink")]
         [SerializeField] public bool enableEyeBlink = false;
@@ -173,6 +172,9 @@ namespace FluentT.Avatar.SampleFloatingHead
                 // Unsubscribe from LateUpdate completion callback
                 avatar.OnLateUpdateCompleted -= OnAvatarLateUpdateCompleted;
             }
+
+            // Clear emotion tagging deduplication tracker
+            emotionTaggedData.Clear();
         }
 
         private void Start()
@@ -259,10 +261,19 @@ namespace FluentT.Avatar.SampleFloatingHead
         public void OnSentenceStarted(FluentT.APIClient.V3.TalkMotionData data)
         {
             // Process client-side emotion tagging if enabled
-            if (enableClientEmotionTagging && data != null && data.audioClip != null && !string.IsNullOrEmpty(data.text))
+            if (enableClientEmotionTagging)
             {
-                float startTime = Time.time;
-                StartEmotionTaggingProcessing(data.text, data.audioClip.length, startTime);
+                if (data == null)
+                    Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Emotion tagging skipped: data is null");
+                else if (data.audioClip == null)
+                    Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Emotion tagging skipped: audioClip is null");
+                else if (string.IsNullOrEmpty(data.text))
+                    Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Emotion tagging skipped: text is empty");
+                else
+                {
+                    Debug.Log($"[FluentTAvatarControllerFloatingHead] Emotion tagging processing: \"{data.text}\" (audio: {data.audioClip.length:F2}s)");
+                    ProcessEmotionTagging(data.text, data.audioClip.length, data);
+                }
             }
 
             // NOTE: Server motion tagging is now handled by OnServerMotionTag callback (called at exact timing from timeline)
@@ -298,18 +309,12 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         private void UpdateTimelines(float deltaTime)
         {
-            // Update emotion tagging timeline
-            UpdateEmotionTaggingTimeline(deltaTime);
-
-            // Server motion tagging uses Animator triggers, no timeline update needed
+            // Both client and server emotion tagging use Animator triggers, no timeline update needed
         }
 
         private void LateUpdateTimelines(float deltaTime)
         {
-            // LateUpdate emotion tagging timeline
-            LateUpdateEmotionTaggingTimeline(deltaTime);
-
-            // Server motion tagging uses Animator triggers, no timeline update needed
+            // Both client and server emotion tagging use Animator triggers, no timeline update needed
         }
 
         #endregion
@@ -322,19 +327,6 @@ namespace FluentT.Avatar.SampleFloatingHead
     /// </summary>
     [System.Serializable]
     public class EmotionMotionMapping
-    {
-        public string emotionTag;
-        public TMAnimationClip animationClip;
-        [Range(0f, 1f)]
-        public float blendWeight = 1f;
-        public float durationOverride = 0f;
-    }
-
-    /// <summary>
-    /// Server motion tag to animation clip mapping
-    /// </summary>
-    [System.Serializable]
-    public class ServerMotionTagMapping
     {
         public string emotionTag;
         public AnimationClip animationClip;
