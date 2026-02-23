@@ -331,7 +331,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         public List<AnimationClip> animationClips = new List<AnimationClip>();
         [Range(0f, 1f)]
         public float blendWeight = 1f;
-        public float durationOverride = 0f;
     }
 
     #endregion
