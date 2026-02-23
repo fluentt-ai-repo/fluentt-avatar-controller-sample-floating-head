@@ -30,6 +30,8 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             EditorGUILayout.LabelField("Blink Animation", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("blinkClip"),
                 new GUIContent("Blink Clip", "Custom TMAnimationClip for eye blink. If null, uses default ARKit eyeBlink animation."));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("blinkBlendMode"),
+                new GUIContent("Blend Mode", "How blink layer values combine with face animation.\n\n• Override: Replace current value\n• Additive: Add to current value\n• SoftMax2D: Soft blend (prevents saturation)\n• Max: Take the larger value"));
 
             // Create Blink Clip button
             EditorGUILayout.BeginHorizontal();

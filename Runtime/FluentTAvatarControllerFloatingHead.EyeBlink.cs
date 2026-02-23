@@ -40,6 +40,16 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
             }
 
+            // Set blend mode on the blink layer
+            if (avatar.TMAnimationComponent != null)
+            {
+                var blinkLayer = avatar.TMAnimationComponent.GetLayer(BLINK_LAYER_INDEX, TMAnimationLayer.UpdatePhase.LateUpdate);
+                if (blinkLayer != null)
+                {
+                    blinkLayer.blendMode = blinkBlendMode;
+                }
+            }
+
             // Start blink coroutine
             if (blinkCoroutine != null)
             {
@@ -47,7 +57,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
             blinkCoroutine = StartCoroutine(BlinkRoutine());
 
-            Debug.Log($"[FluentTAvatarControllerFloatingHead] Eye blink initialized with clip: {activeBlinkClip.name}");
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Eye blink initialized with clip: {activeBlinkClip.name}, blendMode: {blinkBlendMode}");
         }
 
         /// <summary>
