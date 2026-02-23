@@ -86,12 +86,8 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Override the dummy clip with the actual animation
             overrideController[dummyClipName] = clip;
 
-            // Set layer weight (optional, for blending)
-            int serverMotionLayerIndex = GetLayerIndex("Server Motion Tagging");
-            if (serverMotionLayerIndex >= 0)
-            {
-                animator.SetLayerWeight(serverMotionLayerIndex, blendWeight);
-            }
+            // Layer weight is now managed by LayerWeightController StateMachineBehaviour
+            // attached to each state in the Motion Tagging layer.
 
             // Trigger the animation state
             animator.SetTrigger(triggerName);

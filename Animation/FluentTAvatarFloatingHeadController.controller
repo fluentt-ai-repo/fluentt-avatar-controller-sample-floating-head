@@ -1,5 +1,20 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-9014914157192486770
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 322f6ffbbd5c72a43af106af6c886a0c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FluentT.AvatarControllerSampleFloatingHead.Runtime::FluentT.Avatar.SampleFloatingHead.LayerWeightController
+  targetLayerIndex: -1
+  activeWeight: 1
+  fadeDuration: 0.5
 --- !u!114 &-7854125213686244675
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -125,6 +140,43 @@ AnimatorStateTransition:
   m_InterruptionSource: 0
   m_OrderedInterruption: 1
   m_CanTransitionToSelf: 1
+--- !u!1107 &-1047825621266808569
+AnimatorStateMachine:
+  serializedVersion: 6
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Base
+  m_ChildStates:
+  - serializedVersion: 1
+    m_State: {fileID: 5816158372684757123}
+    m_Position: {x: 400, y: 170, z: 0}
+  m_ChildStateMachines: []
+  m_AnyStateTransitions: []
+  m_EntryTransitions: []
+  m_StateMachineTransitions: {}
+  m_StateMachineBehaviours: []
+  m_AnyStatePosition: {x: 50, y: 20, z: 0}
+  m_EntryPosition: {x: 50, y: 120, z: 0}
+  m_ExitPosition: {x: 800, y: 120, z: 0}
+  m_ParentStateMachinePosition: {x: 800, y: 20, z: 0}
+  m_DefaultState: {fileID: 5816158372684757123}
+--- !u!114 &-727385995269695273
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 322f6ffbbd5c72a43af106af6c886a0c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FluentT.AvatarControllerSampleFloatingHead.Runtime::FluentT.Avatar.SampleFloatingHead.LayerWeightController
+  targetLayerIndex: -1
+  activeWeight: 1
+  fadeDuration: 0.5
 --- !u!91 &9100000
 AnimatorController:
   m_ObjectHideFlags: 0
@@ -148,14 +200,26 @@ AnimatorController:
     m_Controller: {fileID: 9100000}
   m_AnimatorLayers:
   - serializedVersion: 5
-    m_Name: Server Motion Tagging
+    m_Name: Base
+    m_StateMachine: {fileID: -1047825621266808569}
+    m_Mask: {fileID: 0}
+    m_Motions: []
+    m_Behaviours: []
+    m_BlendingMode: 0
+    m_SyncedLayerIndex: -1
+    m_DefaultWeight: 0
+    m_IKPass: 0
+    m_SyncedLayerAffectsTiming: 0
+    m_Controller: {fileID: 9100000}
+  - serializedVersion: 5
+    m_Name: Motion Tagging
     m_StateMachine: {fileID: 5492114478091066229}
     m_Mask: {fileID: 0}
     m_Motions: []
     m_Behaviours: []
     m_BlendingMode: 0
     m_SyncedLayerIndex: -1
-    m_DefaultWeight: 1
+    m_DefaultWeight: 0
     m_IKPass: 0
     m_SyncedLayerAffectsTiming: 0
     m_Controller: {fileID: 9100000}
@@ -206,6 +270,21 @@ AnimatorStateTransition:
   m_InterruptionSource: 0
   m_OrderedInterruption: 1
   m_CanTransitionToSelf: 1
+--- !u!114 &2107834440299399363
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 322f6ffbbd5c72a43af106af6c886a0c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FluentT.AvatarControllerSampleFloatingHead.Runtime::FluentT.Avatar.SampleFloatingHead.LayerWeightController
+  targetLayerIndex: -1
+  activeWeight: 0
+  fadeDuration: 0.5
 --- !u!1102 &2380679226541124443
 AnimatorState:
   serializedVersion: 6
@@ -219,7 +298,8 @@ AnimatorState:
   m_Transitions:
   - {fileID: 1874273658866486803}
   - {fileID: 234121263724038795}
-  m_StateMachineBehaviours: []
+  m_StateMachineBehaviours:
+  - {fileID: -9014914157192486770}
   m_Position: {x: 50, y: 50, z: 0}
   m_IKOnFeet: 0
   m_WriteDefaultValues: 1
@@ -241,7 +321,7 @@ AnimatorStateMachine:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Server Motion Tagging
+  m_Name: Motion Tagging
   m_ChildStates:
   - serializedVersion: 1
     m_State: {fileID: 2380679226541124443}
@@ -262,6 +342,32 @@ AnimatorStateMachine:
   m_ExitPosition: {x: 850, y: 90, z: 0}
   m_ParentStateMachinePosition: {x: 800, y: 20, z: 0}
   m_DefaultState: {fileID: 7157821675182334920}
+--- !u!1102 &5816158372684757123
+AnimatorState:
+  serializedVersion: 6
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: New State 0
+  m_Speed: 1
+  m_CycleOffset: 0
+  m_Transitions: []
+  m_StateMachineBehaviours: []
+  m_Position: {x: 50, y: 50, z: 0}
+  m_IKOnFeet: 0
+  m_WriteDefaultValues: 1
+  m_Mirror: 0
+  m_SpeedParameterActive: 0
+  m_MirrorParameterActive: 0
+  m_CycleOffsetParameterActive: 0
+  m_TimeParameterActive: 0
+  m_Motion: {fileID: 7400000, guid: 13853325270683c4a879385c174796a4, type: 2}
+  m_Tag: 
+  m_SpeedParameter: 
+  m_MirrorParameter: 
+  m_CycleOffsetParameter: 
+  m_TimeParameter: 
 --- !u!1102 &6880133240555699513
 AnimatorState:
   serializedVersion: 6
@@ -275,7 +381,8 @@ AnimatorState:
   m_Transitions:
   - {fileID: -5539256618521410500}
   - {fileID: -7851517329231261194}
-  m_StateMachineBehaviours: []
+  m_StateMachineBehaviours:
+  - {fileID: -727385995269695273}
   m_Position: {x: 50, y: 50, z: 0}
   m_IKOnFeet: 0
   m_WriteDefaultValues: 1
@@ -317,7 +424,8 @@ AnimatorState:
   m_Transitions:
   - {fileID: -3826689824704834879}
   - {fileID: -1868514041374365704}
-  m_StateMachineBehaviours: []
+  m_StateMachineBehaviours:
+  - {fileID: 2107834440299399363}
   m_Position: {x: 50, y: 50, z: 0}
   m_IKOnFeet: 0
   m_WriteDefaultValues: 1
@@ -326,7 +434,7 @@ AnimatorState:
   m_MirrorParameterActive: 0
   m_CycleOffsetParameterActive: 0
   m_TimeParameterActive: 0
-  m_Motion: {fileID: 7400000, guid: 13853325270683c4a879385c174796a4, type: 2}
+  m_Motion: {fileID: 7400000, guid: 78b913827c6e63d40b1014081d48b51f, type: 2}
   m_Tag: 
   m_SpeedParameter: 
   m_MirrorParameter: 
