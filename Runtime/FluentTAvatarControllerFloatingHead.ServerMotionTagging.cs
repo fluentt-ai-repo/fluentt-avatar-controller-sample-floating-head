@@ -56,22 +56,27 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             // Find matching motion mapping from shared emotionMotionMappings
             var motionMapping = GetServerMotionMapping(taggedMotion.tag);
-            if (motionMapping == null || motionMapping.animationClip == null)
+            if (motionMapping == null || motionMapping.animationClips == null || motionMapping.animationClips.Count == 0)
             {
                 Debug.LogWarning($"[FluentTAvatarControllerFloatingHead] No motion mapping found for tag '{taggedMotion.tag}'");
                 return;
             }
 
+            // Pick a random clip from the variants
+            var clip = motionMapping.animationClips[UnityEngine.Random.Range(0, motionMapping.animationClips.Count)];
+            if (clip == null)
+                return;
+
             // Play the animation immediately (triggered at exact timing by timeline marker)
-            PlayServerMotion(motionMapping);
+            PlayMotionClip(clip, motionMapping.blendWeight, motionMapping.emotionTag);
         }
 
         /// <summary>
-        /// Play server motion animation using animator triggers and override controller
+        /// Play motion animation using animator triggers and override controller
         /// </summary>
-        private void PlayServerMotion(EmotionMotionMapping motionMapping)
+        private void PlayMotionClip(AnimationClip clip, float blendWeight, string tag)
         {
-            if (animator == null || overrideController == null || motionMapping.animationClip == null)
+            if (animator == null || overrideController == null || clip == null)
                 return;
 
             // Determine which slot to use (alternate between 0 and 1)
@@ -79,19 +84,19 @@ namespace FluentT.Avatar.SampleFloatingHead
             string triggerName = currentEmotionSlot == 0 ? "emotion0" : "emotion1";
 
             // Override the dummy clip with the actual animation
-            overrideController[dummyClipName] = motionMapping.animationClip;
+            overrideController[dummyClipName] = clip;
 
             // Set layer weight (optional, for blending)
             int serverMotionLayerIndex = GetLayerIndex("Server Motion Tagging");
             if (serverMotionLayerIndex >= 0)
             {
-                animator.SetLayerWeight(serverMotionLayerIndex, motionMapping.blendWeight);
+                animator.SetLayerWeight(serverMotionLayerIndex, blendWeight);
             }
 
             // Trigger the animation state
             animator.SetTrigger(triggerName);
 
-            Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing server motion: {motionMapping.emotionTag} on slot {currentEmotionSlot} with trigger {triggerName}");
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing motion: {tag} ({clip.name}) on slot {currentEmotionSlot}");
 
             // Alternate slot for next call
             currentEmotionSlot = 1 - currentEmotionSlot;
@@ -128,14 +133,18 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             // Find matching motion mapping from shared emotionMotionMappings
             var motionMapping = GetServerMotionMapping(taggedMotion.tag);
-            if (motionMapping == null || motionMapping.animationClip == null)
+            if (motionMapping == null || motionMapping.animationClips == null || motionMapping.animationClips.Count == 0)
             {
                 Debug.LogWarning($"[FluentTAvatarControllerFloatingHead] No motion mapping found for tag '{taggedMotion.tag}'");
                 return;
             }
 
-            // Play the motion immediately (timing handled by callback)
-            PlayServerMotion(motionMapping);
+            // Pick a random clip from the variants and play
+            var clip = motionMapping.animationClips[UnityEngine.Random.Range(0, motionMapping.animationClips.Count)];
+            if (clip != null)
+            {
+                PlayMotionClip(clip, motionMapping.blendWeight, motionMapping.emotionTag);
+            }
         }
 
         /// <summary>

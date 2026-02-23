@@ -15,8 +15,8 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 "• Client: Regex-detected emotion tags trigger animations at estimated timing\n" +
                 "• Server: Server-provided emotion tags trigger animations at exact timing\n\n" +
                 "Setup:\n" +
-                "1. Add emotion tag entries (e.g. tag: \"강조\", clip: emphasis_anim)\n" +
-                "2. Assign AnimationClip and blend weight for each tag\n" +
+                "1. Add emotion tag entries (e.g. tag: \"강조\")\n" +
+                "2. Assign one or more AnimationClips per tag (random variant selection)\n" +
                 "3. Enable Server Motion Tagging if server provides emotion tags",
                 MessageType.Info);
 

@@ -321,13 +321,14 @@ namespace FluentT.Avatar.SampleFloatingHead
     #region Data Structures for Emotion Tagging
 
     /// <summary>
-    /// Emotion tag to motion mapping
+    /// Emotion tag to motion mapping.
+    /// Multiple animation clips can be assigned per tag for random variant selection.
     /// </summary>
     [System.Serializable]
     public class EmotionMotionMapping
     {
         public string emotionTag;
-        public AnimationClip animationClip;
+        public List<AnimationClip> animationClips = new List<AnimationClip>();
         [Range(0f, 1f)]
         public float blendWeight = 1f;
         public float durationOverride = 0f;
