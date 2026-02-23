@@ -156,6 +156,9 @@ namespace FluentT.Avatar.SampleFloatingHead
                 avatar.callback.onSentenceEnded.AddListener(OnSentenceEnded);
                 avatar.callback.onTranscriptionReceived.AddListener(OnTranscriptionReceived);
                 avatar.callback.onServerMotionTag.AddListener(OnServerMotionTag);
+
+                // Build-time event for client-side emotion tagging
+                avatar.callback.onSubtitleContentAdded.AddListener(OnSubtitleContentAdded);
             }
         }
 
@@ -168,13 +171,11 @@ namespace FluentT.Avatar.SampleFloatingHead
                 avatar.callback.onSentenceEnded.RemoveListener(OnSentenceEnded);
                 avatar.callback.onTranscriptionReceived.RemoveListener(OnTranscriptionReceived);
                 avatar.callback.onServerMotionTag.RemoveListener(OnServerMotionTag);
+                avatar.callback.onSubtitleContentAdded.RemoveListener(OnSubtitleContentAdded);
 
                 // Unsubscribe from LateUpdate completion callback
                 avatar.OnLateUpdateCompleted -= OnAvatarLateUpdateCompleted;
             }
-
-            // Clear emotion tagging deduplication tracker
-            emotionTaggedData.Clear();
         }
 
         private void Start()
@@ -260,23 +261,20 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         public void OnSentenceStarted(FluentT.APIClient.V3.TalkMotionData data)
         {
-            // Process client-side emotion tagging if enabled
-            if (enableClientEmotionTagging)
-            {
-                if (data == null)
-                    Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Emotion tagging skipped: data is null");
-                else if (data.audioClip == null)
-                    Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Emotion tagging skipped: audioClip is null");
-                else if (string.IsNullOrEmpty(data.text))
-                    Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Emotion tagging skipped: text is empty");
-                else
-                {
-                    Debug.Log($"[FluentTAvatarControllerFloatingHead] Emotion tagging processing: \"{data.text}\" (audio: {data.audioClip.length:F2}s)");
-                    ProcessEmotionTagging(data.text, data.audioClip.length, data);
-                }
-            }
+            // Client-side emotion tagging is now handled at build time via onSubtitleContentAdded
+            // Server motion tagging is handled by OnServerMotionTag callback (called at exact timing from timeline)
+        }
 
-            // NOTE: Server motion tagging is now handled by OnServerMotionTag callback (called at exact timing from timeline)
+        /// <summary>
+        /// Called at build time when subtitle content is added to the timeline.
+        /// Batch edit block is active, so markers added here are included in the same RebuildGraph.
+        /// </summary>
+        private void OnSubtitleContentAdded(FluentT.APIClient.V3.TalkMotionData data, string subtitleText, float startTime, float duration)
+        {
+            if (!enableClientEmotionTagging || string.IsNullOrEmpty(subtitleText) || avatar == null)
+                return;
+
+            ProcessEmotionTagging(subtitleText, duration, startTime, data);
         }
 
         public void OnSentenceEnded(FluentT.APIClient.V3.TalkMotionData data)

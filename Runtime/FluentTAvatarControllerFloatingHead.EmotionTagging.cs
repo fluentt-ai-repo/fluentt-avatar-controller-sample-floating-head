@@ -35,10 +35,6 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         private List<CompiledEmotionPattern> compiledPatterns;
 
-        // Track TalkMotionData instances that have already been emotion-tagged
-        // Prevents duplicate marker additions when onSentenceStarted re-fires after RebuildGraph
-        private HashSet<FluentT.APIClient.V3.TalkMotionData> emotionTaggedData = new HashSet<FluentT.APIClient.V3.TalkMotionData>();
-
         #region Emotion Tagging Initialization
 
         private void InitializeEmotionTagging()
@@ -117,10 +113,12 @@ namespace FluentT.Avatar.SampleFloatingHead
         #region Client-Side Emotion Tagging
 
         /// <summary>
-        /// Process emotion tagging: analyze text with regex, select candidates,
-        /// and add motion tag markers to FluentTAvatar's timeline.
+        /// Process emotion tagging at build time: analyze text with regex, select candidates,
+        /// and add motion tag markers to FluentTAvatar's timeline using absolute time.
+        /// Called from onSubtitleContentAdded inside the batch edit block,
+        /// so markers are included in the same RebuildGraph.
         /// </summary>
-        private void ProcessEmotionTagging(string text, float audioDuration, FluentT.APIClient.V3.TalkMotionData data)
+        private void ProcessEmotionTagging(string text, float audioDuration, float absoluteStartTime, FluentT.APIClient.V3.TalkMotionData data)
         {
             if (!enableClientEmotionTagging || string.IsNullOrEmpty(text))
                 return;
@@ -129,10 +127,6 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
 
             if (avatar == null)
-                return;
-
-            // Skip if this data has already been emotion-tagged (prevents duplicate markers)
-            if (data != null && !emotionTaggedData.Add(data))
                 return;
 
             // Collect all candidates from all compiled patterns
@@ -163,20 +157,21 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Weighted probability selection
             var selectedCandidates = SelectCandidatesByWeight(candidates, maxEmotionTagsPerSentence);
 
-            // Add motion tag markers to timeline
+            // Add motion tag markers to timeline using absolute time
             int totalChars = text.Length;
 
             foreach (var candidate in selectedCandidates)
             {
                 // Estimate timing based on character position ratio
-                float estimatedTime = totalChars > 0
+                float estimatedOffset = totalChars > 0
                     ? (candidate.matchCharIndex / (float)totalChars) * audioDuration
                     : 0f;
 
-                // Add marker to FluentTAvatar's timeline
-                avatar.AddMotionTagMarker(candidate.emotionTag, estimatedTime, data);
+                // Add marker at absolute timeline time (within batch edit block)
+                double markerTime = absoluteStartTime + estimatedOffset;
+                avatar.AddMotionTagMarkerAbsolute(candidate.emotionTag, markerTime, data);
 
-                Debug.Log($"[FluentTAvatarControllerFloatingHead] Added motion tag marker: '{candidate.emotionTag}' at char {candidate.matchCharIndex} → time offset {estimatedTime:F2}s");
+                Debug.Log($"[FluentTAvatarControllerFloatingHead] Added emotion marker: '{candidate.emotionTag}' at char {candidate.matchCharIndex} → timeline time {markerTime:F2}s");
             }
         }
 
