@@ -7,23 +7,24 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
     {
         private void DrawEmotionTaggingSettings()
         {
-            EditorGUILayout.LabelField("Client-Side Emotion Tagging Settings", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Text Emotion Detection", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Client-Side Emotion Tagging\n\n" +
+                "Text Emotion Detection\n\n" +
+                "Detects emotions from subtitle text using client-side regex pattern matching.\n\n" +
                 "How it works:\n" +
-                "1. When a sentence starts, the text is analyzed using regex patterns\n" +
+                "1. When subtitle text is built, it is analyzed using regex patterns\n" +
                 "2. Matched emotions are selected via weighted probability\n" +
-                "3. Emotion tags are passed to Emotion Motion Mapping for animation playback\n\n" +
+                "3. Detected tags trigger gesture animations configured in the 'Gesture Animation' tab\n\n" +
                 "Setup:\n" +
                 "1. Create an EmotionKeywordDataset asset (Assets > Create > FluentT > Emotion Keyword Dataset)\n" +
                 "2. Add regex patterns mapped to emotion tags (e.g. pattern: \"happy|glad\", tag: \"happy\")\n" +
-                "3. Configure animation mappings in the 'Emotion Motion Mapping' tab",
+                "3. Configure gesture mappings in the 'Gesture Animation' tab",
                 MessageType.Info);
 
             EditorGUILayout.Space();
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("enableClientEmotionTagging"),
-                new GUIContent("Enable Client Emotion Tagging", "Enable client-side regex-based emotion tagging"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("enableTextEmotionDetection"),
+                new GUIContent("Enable Text Emotion Detection", "Enable client-side regex-based emotion detection from subtitle text"));
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Emotion Detection", EditorStyles.boldLabel);

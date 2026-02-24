@@ -8,7 +8,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
     [CustomEditor(typeof(FluentTAvatarControllerFloatingHead))]
     public partial class FluentTAvatarControllerFloatingHeadEditor : UnityEditor.Editor
     {
-        private string[] _tabNames = { "Default Animation", "Look Target", "Emotion Tagging", "Emotion Motion Mapping", "Eye Blink" };
+        private string[] _tabNames = { "Default Animation", "Look Target", "Text Emotion Detection", "Gesture Animation", "Eye Blink" };
 
         // Reflection binding flags constant
         private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
@@ -43,11 +43,11 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 case 1: // Look Target
                     DrawLookTargetSettings();
                     break;
-                case 2: // Emotion Tagging
+                case 2: // Text Emotion Detection
                     DrawEmotionTaggingSettings();
                     break;
-                case 3: // Emotion Motion Mapping
-                    DrawEmotionMotionMappingSettings();
+                case 3: // Gesture Animation
+                    DrawGestureAnimationSettings();
                     break;
                 case 4: // Eye Blink
                     DrawEyeBlinkSettings();

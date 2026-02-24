@@ -41,6 +41,16 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         #endregion
 
+        /// <summary>
+        /// Reset emotion animation state to Idle immediately.
+        /// Call this when speech ends to prevent long emotion animations from continuing.
+        /// </summary>
+        public void ResetEmotionState()
+        {
+            if (animator == null) return;
+            animator.SetTrigger("emotionReset");
+        }
+
         #region Server Motion Tagging Callbacks
 
         /// <summary>
@@ -54,21 +64,21 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             Debug.Log($"[FluentTAvatarControllerFloatingHead] Motion tag triggered - Tag: {taggedMotion.tag}, Word: {taggedMotion.word}, Confidence: {taggedMotion.confidence}");
 
-            // Find matching motion mapping from shared emotionMotionMappings
-            var motionMapping = GetServerMotionMapping(taggedMotion.tag);
-            if (motionMapping == null || motionMapping.animationClips == null || motionMapping.animationClips.Count == 0)
+            // Find matching gesture mapping from shared gestureMappings
+            var gestureMapping = GetServerMotionMapping(taggedMotion.tag);
+            if (gestureMapping == null || gestureMapping.animationClips == null || gestureMapping.animationClips.Count == 0)
             {
-                Debug.LogWarning($"[FluentTAvatarControllerFloatingHead] No motion mapping found for tag '{taggedMotion.tag}'");
+                Debug.LogWarning($"[FluentTAvatarControllerFloatingHead] No gesture mapping found for tag '{taggedMotion.tag}'");
                 return;
             }
 
             // Pick a random clip from the variants
-            var clip = motionMapping.animationClips[UnityEngine.Random.Range(0, motionMapping.animationClips.Count)];
+            var clip = gestureMapping.animationClips[UnityEngine.Random.Range(0, gestureMapping.animationClips.Count)];
             if (clip == null)
                 return;
 
             // Play the animation immediately (triggered at exact timing by timeline marker)
-            PlayMotionClip(clip, motionMapping.blendWeight, motionMapping.emotionTag);
+            PlayMotionClip(clip, gestureMapping.blendWeight, gestureMapping.emotionTag);
         }
 
         /// <summary>
@@ -89,6 +99,9 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Layer weight is now managed by LayerWeightController StateMachineBehaviour
             // attached to each state in the Motion Tagging layer.
 
+            // Clear any pending emotionReset trigger to prevent immediate return to Idle
+            animator.ResetTrigger("emotionReset");
+
             // Trigger the animation state
             animator.SetTrigger(triggerName);
 
@@ -98,57 +111,16 @@ namespace FluentT.Avatar.SampleFloatingHead
             currentEmotionSlot = 1 - currentEmotionSlot;
         }
 
-        /// <summary>
-        /// Get layer index by name
-        /// </summary>
-        private int GetLayerIndex(string layerName)
-        {
-            for (int i = 0; i < animator.layerCount; i++)
-            {
-                if (animator.GetLayerName(i) == layerName)
-                    return i;
-            }
-            return -1;
-        }
-
         #endregion
 
         #region Server Motion Tagging Processing
 
         /// <summary>
-        /// Process server-side motion tagging data (legacy - no longer used, replaced by OnServerMotionTag callback)
+        /// Get gesture mapping by emotion tag from shared gestureMappings
         /// </summary>
-        public void ProcessServerMotionTagging(TalkMotionData data)
+        private GestureMapping GetServerMotionMapping(string emotionTag)
         {
-            if (!enableServerMotionTagging || data?.taggedMotion == null)
-                return;
-
-            var taggedMotion = data.taggedMotion;
-
-            Debug.Log($"[FluentTAvatarControllerFloatingHead] Processing server motion tag - Tag: {taggedMotion.tag}, Word: {taggedMotion.word}, Word Index: {taggedMotion.word_index}/{taggedMotion.total_words}, Confidence: {taggedMotion.confidence}");
-
-            // Find matching motion mapping from shared emotionMotionMappings
-            var motionMapping = GetServerMotionMapping(taggedMotion.tag);
-            if (motionMapping == null || motionMapping.animationClips == null || motionMapping.animationClips.Count == 0)
-            {
-                Debug.LogWarning($"[FluentTAvatarControllerFloatingHead] No motion mapping found for tag '{taggedMotion.tag}'");
-                return;
-            }
-
-            // Pick a random clip from the variants and play
-            var clip = motionMapping.animationClips[UnityEngine.Random.Range(0, motionMapping.animationClips.Count)];
-            if (clip != null)
-            {
-                PlayMotionClip(clip, motionMapping.blendWeight, motionMapping.emotionTag);
-            }
-        }
-
-        /// <summary>
-        /// Get motion mapping by emotion tag from shared emotionMotionMappings
-        /// </summary>
-        private EmotionMotionMapping GetServerMotionMapping(string emotionTag)
-        {
-            return emotionMotionMappings.FirstOrDefault(m =>
+            return gestureMappings.FirstOrDefault(m =>
                 string.Equals(m.emotionTag, emotionTag, StringComparison.OrdinalIgnoreCase));
         }
 

@@ -39,7 +39,7 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         private void InitializeEmotionTagging()
         {
-            if (!enableClientEmotionTagging)
+            if (!enableTextEmotionDetection)
                 return;
 
             // Compile regex patterns from dataset
@@ -120,7 +120,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         private void ProcessEmotionTagging(string text, float audioDuration, float absoluteStartTime, FluentT.APIClient.V3.TalkMotionData data)
         {
-            if (!enableClientEmotionTagging || string.IsNullOrEmpty(text))
+            if (!enableTextEmotionDetection || string.IsNullOrEmpty(text))
                 return;
 
             if (compiledPatterns == null || compiledPatterns.Count == 0)

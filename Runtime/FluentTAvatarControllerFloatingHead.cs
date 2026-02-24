@@ -3,6 +3,7 @@ using FluentT.Talkmotion;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Animations.Rigging;
+using UnityEngine.Serialization;
 
 namespace FluentT.Avatar.SampleFloatingHead
 {
@@ -55,14 +56,18 @@ namespace FluentT.Avatar.SampleFloatingHead
             eyeAngleVariance = new Vector2(0, 0)
         };
 
-        [Header("Client-Side Emotion Tagging")]
-        [SerializeField] public bool enableClientEmotionTagging = false;
+        [Header("Text Emotion Detection")]
+        [FormerlySerializedAs("enableClientEmotionTagging")]
+        [SerializeField] public bool enableTextEmotionDetection = false;
         [SerializeField] public int maxEmotionTagsPerSentence = 1;
         [SerializeField] public EmotionKeywordDataset emotionKeywordDataset;
 
-        [Header("Emotion Motion Mapping")]
+        [Header("Gesture Animation")]
         [SerializeField] public bool enableServerMotionTagging = false;
-        [SerializeField] public List<EmotionMotionMapping> emotionMotionMappings = new List<EmotionMotionMapping>();
+        [Tooltip("Automatically reset gesture animation to Idle when last sentence ends")]
+        [SerializeField] public bool enableAutoEmotionReset = true;
+        [FormerlySerializedAs("emotionMotionMappings")]
+        [SerializeField] public List<GestureMapping> gestureMappings = new List<GestureMapping>();
 
         [Header("Eye Blink")]
         [SerializeField] public bool enableEyeBlink = false;
@@ -214,15 +219,8 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
         }
 
-        private void Update()
-        {
-            UpdateTimelines(Time.deltaTime);
-        }
-
         private void LateUpdate()
         {
-            LateUpdateTimelines(Time.deltaTime);
-
             if (enableLookTarget && lookTargetController != null)
             {
                 UpdateLookTarget();
@@ -273,7 +271,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         private void OnSubtitleContentAdded(FluentT.APIClient.V3.TalkMotionData data, string subtitleText, float startTime, float duration)
         {
-            if (!enableClientEmotionTagging || string.IsNullOrEmpty(subtitleText) || avatar == null)
+            if (!enableTextEmotionDetection || string.IsNullOrEmpty(subtitleText) || avatar == null)
                 return;
 
             ProcessEmotionTagging(subtitleText, duration, startTime, data);
@@ -281,7 +279,10 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         public void OnSentenceEnded(FluentT.APIClient.V3.TalkMotionData data)
         {
-            // Sentence ended
+            if (data != null && data.isLastSentence && enableAutoEmotionReset)
+            {
+                ResetEmotionState();
+            }
         }
 
         public void OnTranscriptionReceived(FluentT.Talkmotion.TranscriptionData data)
@@ -305,29 +306,16 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         #endregion
 
-        #region Animation Updates
-
-        private void UpdateTimelines(float deltaTime)
-        {
-            // Both client and server emotion tagging use Animator triggers, no timeline update needed
-        }
-
-        private void LateUpdateTimelines(float deltaTime)
-        {
-            // Both client and server emotion tagging use Animator triggers, no timeline update needed
-        }
-
-        #endregion
     }
 
-    #region Data Structures for Emotion Tagging
+    #region Data Structures for Gesture Animation
 
     /// <summary>
-    /// Emotion tag to motion mapping.
+    /// Emotion tag to gesture animation mapping.
     /// Multiple animation clips can be assigned per tag for random variant selection.
     /// </summary>
     [System.Serializable]
-    public class EmotionMotionMapping
+    public class GestureMapping
     {
         public string emotionTag;
         public List<AnimationClip> animationClips = new List<AnimationClip>();

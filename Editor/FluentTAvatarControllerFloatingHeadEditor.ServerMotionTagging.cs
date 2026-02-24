@@ -5,15 +5,15 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 {
     public partial class FluentTAvatarControllerFloatingHeadEditor
     {
-        private void DrawEmotionMotionMappingSettings()
+        private void DrawGestureAnimationSettings()
         {
-            EditorGUILayout.LabelField("Emotion Motion Mapping", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Gesture Animation", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Emotion Motion Mapping\n\n" +
-                "Maps emotion tags to AnimationClip animations.\n" +
-                "Used by both Client Emotion Tagging and Server Motion Tagging.\n\n" +
-                "• Client: Regex-detected emotion tags trigger animations at estimated timing\n" +
-                "• Server: Server-provided emotion tags trigger animations at exact timing\n\n" +
+                "Gesture Animation\n\n" +
+                "Maps emotion tags to gesture AnimationClip animations.\n" +
+                "Used by both Text Emotion Detection and Server Motion Tagging.\n\n" +
+                "• Text Detection: Regex-detected emotion tags trigger gestures at estimated timing\n" +
+                "• Server: Server-provided emotion tags trigger gestures at exact timing\n\n" +
                 "Setup:\n" +
                 "1. Add emotion tag entries (e.g. tag: \"강조\")\n" +
                 "2. Assign one or more AnimationClips per tag (random variant selection)\n" +
@@ -25,10 +25,13 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("enableServerMotionTagging"),
                 new GUIContent("Enable Server Motion Tagging", "Also receive and play emotion tags from server at exact timing"));
 
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("enableAutoEmotionReset"),
+                new GUIContent("Auto Reset on Speech End", "Automatically blend gesture back to Idle when the last sentence finishes"));
+
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Tag → Animation Mappings", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("emotionMotionMappings"),
-                new GUIContent("Emotion Motion Mappings", "Map emotion tags to AnimationClip animations"));
+            EditorGUILayout.LabelField("Tag → Gesture Mappings", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("gestureMappings"),
+                new GUIContent("Gesture Mappings", "Map emotion tags to gesture AnimationClip animations"));
         }
     }
 }
