@@ -16,22 +16,24 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Default Idle Animation Settings", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Default Idle Animation Clip Override\n\n" +
+                "Multi-Idle Animation System\n\n" +
                 "How it works:\n" +
-                "1. The Animator Controller has a dummy state called 'default_dummy' that plays continuously\n" +
-                "2. By assigning an AnimationClip here, you can override 'default_dummy' with your own idle pose + facial expression\n" +
-                "3. This animation will play as the default state when no other animations are active\n\n" +
+                "1. Add one or more idle animation clips with weights below\n" +
+                "2. At runtime, clips are selected by weighted random and played in sequence\n" +
+                "3. When one clip finishes, the Animator cross-fades (0.3s) to the next randomly selected clip\n" +
+                "4. Enable 'Prevent Repeat' on a clip to avoid it playing twice in a row\n\n" +
                 "Requirements:\n" +
                 "• Animator Controller must be assigned above\n" +
-                "• Your animation clip should contain both body pose and facial expression (blend shapes)\n" +
-                "• The animation should be loopable for seamless playback\n" +
-                "• Bone hierarchy paths in the clip must match your avatar's hierarchy",
+                "• Animation clips should contain body pose and/or facial expression (blend shapes)\n" +
+                "• Clips should be loopable for seamless playback\n" +
+                "• Bone hierarchy paths in clips must match your avatar's hierarchy\n\n" +
+                "Note: If only 1 clip is assigned, it loops continuously (same as legacy behavior).",
                 MessageType.Info);
 
             EditorGUILayout.Space();
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("defaultIdleAnimationClip"),
-                new GUIContent("Default Idle Animation", "Animation clip to override default_dummy state"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("idleAnimations"),
+                new GUIContent("Idle Animations", "List of idle animation clips with weights for random selection"), true);
         }
     }
 }

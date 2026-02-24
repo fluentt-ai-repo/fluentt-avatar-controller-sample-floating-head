@@ -17,23 +17,26 @@ namespace FluentT.Avatar.SampleFloatingHead
     [RequireComponent(typeof(FluentTAvatar))]
     public partial class FluentTAvatarControllerFloatingHead : MonoBehaviour
     {
-        [Header("References")]
+        // References
         [SerializeField] private FluentTAvatar avatar;
         [SerializeField] private RuntimeAnimatorController animatorController;
 
-        [Header("Default Idle Animation")]
-        [SerializeField] private AnimationClip defaultIdleAnimationClip;
+        // Default Idle Animation
+        [SerializeField] private List<IdleAnimationEntry> idleAnimations = new List<IdleAnimationEntry>();
 
-        [Header("Look Target")]
+        // Legacy field for auto-migration (hidden from Inspector)
+        [HideInInspector] [SerializeField] private AnimationClip defaultIdleAnimationClip;
+
+        // Look Target
         [SerializeField] private bool enableLookTarget = false;
         [SerializeField] private Transform lookTarget;
 
-        [Header("Animation Rigging Multi-Aim Constraints")]
+        // Animation Rigging Multi-Aim Constraints
         [SerializeField] private MultiAimConstraint headAimConstraint;
         [SerializeField] private MultiAimConstraint leftEyeAimConstraint;
         [SerializeField] private MultiAimConstraint rightEyeAimConstraint;
 
-        [Header("Look Target Transforms - For Auto-Find")]
+        // Look Target Transforms
         [SerializeField] private Transform lookHead;
         [SerializeField] private Transform lookLeftEyeBall;
         [SerializeField] private Transform lookRightEyeBall;
@@ -56,20 +59,20 @@ namespace FluentT.Avatar.SampleFloatingHead
             eyeAngleVariance = new Vector2(0, 0)
         };
 
-        [Header("Text Emotion Detection")]
+        // Text Emotion Detection
         [FormerlySerializedAs("enableClientEmotionTagging")]
         [SerializeField] public bool enableTextEmotionDetection = false;
         [SerializeField] public int maxEmotionTagsPerSentence = 1;
         [SerializeField] public EmotionKeywordDataset emotionKeywordDataset;
 
-        [Header("Gesture Animation")]
+        // Gesture Animation
         [SerializeField] public bool enableServerMotionTagging = false;
         [Tooltip("Automatically reset gesture animation to Idle when last sentence ends")]
         [SerializeField] public bool enableAutoEmotionReset = true;
         [FormerlySerializedAs("emotionMotionMappings")]
         [SerializeField] public List<GestureMapping> gestureMappings = new List<GestureMapping>();
 
-        [Header("Eye Blink")]
+        // Eye Blink
         [SerializeField] public bool enableEyeBlink = false;
         [Tooltip("Eye blink animation clip (if null, uses default ARKit eyeBlink animation)")]
         [SerializeField] public TMAnimationClip blinkClip = null;
@@ -106,11 +109,15 @@ namespace FluentT.Avatar.SampleFloatingHead
                     "Packages/com.fluentt.avatar-controller-sample-floating-head/Animation/FluentTAvatarFloatingHeadController.controller");
             }
 
-            // Auto-assign default idle animation clip
-            if (defaultIdleAnimationClip == null)
+            // Auto-assign default idle animation if list is empty
+            if (idleAnimations.Count == 0)
             {
-                defaultIdleAnimationClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                var idleClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AnimationClip>(
                     "Packages/com.fluentt.avatar-controller-sample-floating-head/Animation/idle_sample.anim");
+                if (idleClip != null)
+                {
+                    idleAnimations.Add(new IdleAnimationEntry { clip = idleClip, weight = 1f });
+                }
             }
 #endif
 
@@ -187,7 +194,7 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         private void Start()
         {
-            // Initialize Animator and Override Controller for Server Motion Tagging
+            // Initialize Animator and Override Controller
             if (avatar != null)
             {
                 animator = avatar.GetComponent<Animator>();
@@ -196,16 +203,10 @@ namespace FluentT.Avatar.SampleFloatingHead
                     animator.runtimeAnimatorController = animatorController;
                     overrideController = new AnimatorOverrideController(animatorController);
                     animator.runtimeAnimatorController = overrideController;
-
-                    // Override default_dummy with defaultIdleAnimationClip if assigned
-                    if (defaultIdleAnimationClip != null)
-                    {
-                        overrideController["default_dummy"] = defaultIdleAnimationClip;
-                        Debug.Log($"[FluentTAvatarControllerFloatingHead] Overriding default_dummy with {defaultIdleAnimationClip.name}");
-                    }
                 }
             }
 
+            InitializeIdleAnimations();
             InitializeLookTarget();
             InitializeEmotionTagging();
             InitializeServerMotionTagging();
@@ -217,6 +218,11 @@ namespace FluentT.Avatar.SampleFloatingHead
             {
                 avatar.OnLateUpdateCompleted += OnAvatarLateUpdateCompleted;
             }
+        }
+
+        private void Update()
+        {
+            CheckIdleSwap();
         }
 
         private void LateUpdate()
@@ -307,6 +313,22 @@ namespace FluentT.Avatar.SampleFloatingHead
         #endregion
 
     }
+
+    #region Data Structures for Idle Animation
+
+    /// <summary>
+    /// Idle animation entry with weight for weighted random selection.
+    /// </summary>
+    [System.Serializable]
+    public class IdleAnimationEntry
+    {
+        public AnimationClip clip;
+        [Range(0f, 10f)] public float weight = 1f;
+        [Tooltip("Prevent this clip from playing twice in a row")]
+        public bool preventRepeat;
+    }
+
+    #endregion
 
     #region Data Structures for Gesture Animation
 

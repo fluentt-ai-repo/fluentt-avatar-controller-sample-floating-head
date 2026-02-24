@@ -21,13 +21,13 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] [Range(0f, 45f)] private float eyeAngleLimit = 10f;
         [SerializeField] [Range(0f, 15f)] private float eyeAngleLimitThreshold = 5f;
 
-        [Header("Virtual Target References (Set by Editor)")]
+        // Virtual Target References (Set by Editor)
         [SerializeField] private Transform headVirtualTargetRef;
         [SerializeField] private Transform eyeVirtualTargetRef; // For Transform mode
         [SerializeField] private Transform leftEyeVirtualTargetRef; // For TransformCorrected mode
         [SerializeField] private Transform rightEyeVirtualTargetRef; // For TransformCorrected mode
 
-        [Header("Gizmo Visualization")]
+        // Gizmo Visualization
         [SerializeField] private bool showTargetGizmos = true;
         [SerializeField] private float actualTargetGizmoSize = 0.15f;
         [SerializeField] private float headVirtualTargetGizmoSize = 0.12f;

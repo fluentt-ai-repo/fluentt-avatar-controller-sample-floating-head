@@ -14,8 +14,8 @@ namespace FluentT.Avatar.SampleFloatingHead
     public partial class FluentTAvatarControllerFloatingHead
     {
         private int currentEmotionSlot = 0; // Alternates between 0 and 1
-        private const string EMOTION_DUMMY_0 = "emotion_dummy_0";
-        private const string EMOTION_DUMMY_1 = "emotion_dummy_1";
+        private const string GESTURE_OVERRIDE_0 = "gesture_override_0";
+        private const string GESTURE_OVERRIDE_1 = "gesture_override_1";
 
         #region Server Motion Tagging Initialization
 
@@ -90,11 +90,11 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
 
             // Determine which slot to use (alternate between 0 and 1)
-            string dummyClipName = currentEmotionSlot == 0 ? EMOTION_DUMMY_0 : EMOTION_DUMMY_1;
+            string overrideClipName = currentEmotionSlot == 0 ? GESTURE_OVERRIDE_0 : GESTURE_OVERRIDE_1;
             string triggerName = currentEmotionSlot == 0 ? "emotion0" : "emotion1";
 
-            // Override the dummy clip with the actual animation
-            overrideController[dummyClipName] = clip;
+            // Override the placeholder clip with the actual animation
+            overrideController[overrideClipName] = clip;
 
             // Layer weight is now managed by LayerWeightController StateMachineBehaviour
             // attached to each state in the Motion Tagging layer.
