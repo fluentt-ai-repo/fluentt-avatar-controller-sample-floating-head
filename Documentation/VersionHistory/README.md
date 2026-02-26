@@ -4,7 +4,8 @@
 
 ## 버전 목록
 
-- [v0.2.0](v0.2.0.md) - 2026-02-26 - Talking Animation 시스템 및 Energy Matching (현재)
+- [v0.2.1](v0.2.1.md) - 2026-02-26 - Talking Animation / Energy Matching 제거 (Idle 전용 경량화) (현재)
+- [v0.2.0](v0.2.0.md) - 2026-02-26 - Talking Animation 시스템 및 Energy Matching
 - [v0.1.8](v0.1.8.md) - 2026-02-24 - 멀티 Idle 애니메이션 시스템 및 override 클립 네이밍 정리
 - [v0.1.7](v0.1.7.md) - 2026-02-24 - 에디터 UI 리네이밍 및 감정 리셋 토글
 - [v0.1.6](v0.1.6.md) - 2026-02-23 - 클라이언트 감정 태깅 빌드 타임 전환 및 멀티 클립 지원

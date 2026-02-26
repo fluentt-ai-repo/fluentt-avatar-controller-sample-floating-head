@@ -24,13 +24,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         // Default Idle Animation
         [SerializeField] private List<IdleAnimationEntry> idleAnimations = new List<IdleAnimationEntry>();
 
-        // Default Talking Animation
-        [SerializeField] private List<IdleAnimationEntry> talkingAnimations = new List<IdleAnimationEntry>();
-
-        // Energy Matching (audio RMS vs motion energy similarity)
-        [SerializeField] private bool enableEnergyMatching = false;
-        [SerializeField] [Range(0f, 1f)] private float energyBlendRatio = 0.7f;
-
         // Legacy field for auto-migration (hidden from Inspector)
         [HideInInspector] [SerializeField] private AnimationClip defaultIdleAnimationClip;
 
@@ -214,8 +207,6 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
 
             InitializeIdleAnimations();
-            InitializeTalkingAnimations();
-            InitializeEnergyMatching();
             InitializeLookTarget();
             InitializeEmotionTagging();
             InitializeServerMotionTagging();
@@ -237,8 +228,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             if (group == SwapBufferNotifier.BufferGroup.Idle)
                 SwapInactiveIdleSlot(activeSlot);
-            else
-                SwapInactiveTalkingSlot(activeSlot);
         }
 
         private void LateUpdate()
@@ -285,12 +274,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             // Client-side emotion tagging is now handled at build time via onSubtitleContentAdded
             // Server motion tagging is handled by OnServerMotionTag callback (called at exact timing from timeline)
-
-            // Transition to talking body animation
-            SetTalking(true);
-
-            // Update audio RMS for energy matching (independent of SetTalking, refreshes per sentence)
-            UpdateAudioRMSForEnergyMatching(data);
         }
 
         /// <summary>
@@ -309,9 +292,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             if (data != null && data.isLastSentence)
             {
-                // Return to idle body animation when last sentence ends
-                SetTalking(false);
-
                 if (enableAutoEmotionReset)
                 {
                     ResetEmotionState();

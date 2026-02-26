@@ -11,8 +11,6 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         {
             ("Idle 0", SwapBufferNotifier.BufferGroup.Idle, 0),
             ("Idle 1", SwapBufferNotifier.BufferGroup.Idle, 1),
-            ("Talking 0", SwapBufferNotifier.BufferGroup.Talking, 0),
-            ("Talking 1", SwapBufferNotifier.BufferGroup.Talking, 1),
         };
 
         private void DrawDefaultAnimationSettings()
@@ -47,44 +45,6 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty("idleAnimations"),
                 new GUIContent("Idle Animations", "List of idle animation clips with weights for random selection"), true);
-
-            EditorGUILayout.Space();
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Default Talking Animation Settings", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox(
-                "Talking Body Animation System\n\n" +
-                "How it works:\n" +
-                "1. Add one or more talking animation clips below\n" +
-                "2. When speech starts (OnSentenceStarted), the Animator cross-fades from Idle to Talking\n" +
-                "3. When speech ends (last sentence), it cross-fades back to Idle\n" +
-                "4. Multiple clips use the same swap-buffer pattern as Idle (weighted random, ExitTime cross-fade)\n\n" +
-                "If no talking animations are assigned, the avatar stays in Idle during speech (backward compatible).",
-                MessageType.Info);
-
-            EditorGUILayout.Space();
-
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("talkingAnimations"),
-                new GUIContent("Talking Animations", "List of talking body animation clips with weights for random selection"), true);
-
-            // Energy Matching settings
-            EditorGUILayout.Space();
-            var enableEnergyMatchingProp = serializedObject.FindProperty("enableEnergyMatching");
-            EditorGUILayout.PropertyField(enableEnergyMatchingProp,
-                new GUIContent("Enable Energy Matching", "Select talking clips by audio/motion energy similarity instead of weighted random"));
-
-            if (enableEnergyMatchingProp.boolValue)
-            {
-                EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("energyBlendRatio"),
-                    new GUIContent("Energy Blend Ratio", "0 = weight only, 1 = similarity only. Controls how much energy similarity affects clip selection."));
-                EditorGUILayout.HelpBox(
-                    "Energy Matching compares the audio RMS curve of each sentence with precomputed motion energy curves " +
-                    "to automatically select the best-matching talking animation.\n\n" +
-                    "Final Score = (1 - ratio) × weight + ratio × similarity\n\n" +
-                    "Requires 2+ talking animation clips. Falls back to weighted random when disabled or AudioClip is null.",
-                    MessageType.Info);
-                EditorGUI.indentLevel--;
-            }
         }
 
         #region SwapBuffer Auto-Setup
