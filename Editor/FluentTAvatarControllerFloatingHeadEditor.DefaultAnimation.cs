@@ -34,6 +34,24 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty("idleAnimations"),
                 new GUIContent("Idle Animations", "List of idle animation clips with weights for random selection"), true);
+
+            EditorGUILayout.Space();
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Default Talking Animation Settings", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Talking Body Animation System\n\n" +
+                "How it works:\n" +
+                "1. Add one or more talking animation clips below\n" +
+                "2. When speech starts (OnSentenceStarted), the Animator cross-fades from Idle to Talking\n" +
+                "3. When speech ends (last sentence), it cross-fades back to Idle\n" +
+                "4. Multiple clips use the same swap-buffer pattern as Idle (weighted random, ExitTime cross-fade)\n\n" +
+                "If no talking animations are assigned, the avatar stays in Idle during speech (backward compatible).",
+                MessageType.Info);
+
+            EditorGUILayout.Space();
+
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("talkingAnimations"),
+                new GUIContent("Talking Animations", "List of talking body animation clips with weights for random selection"), true);
         }
     }
 }

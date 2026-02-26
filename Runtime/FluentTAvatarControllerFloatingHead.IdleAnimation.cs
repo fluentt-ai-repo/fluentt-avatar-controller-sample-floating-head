@@ -112,7 +112,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         private void CheckIdleSwap()
         {
-            if (!idleSwapEnabled || animator == null)
+            if (!idleSwapEnabled || isTalkingState || animator == null)
                 return;
 
             bool isInTransition = animator.IsInTransition(0);

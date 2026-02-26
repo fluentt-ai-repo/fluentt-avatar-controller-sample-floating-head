@@ -24,6 +24,9 @@ namespace FluentT.Avatar.SampleFloatingHead
         // Default Idle Animation
         [SerializeField] private List<IdleAnimationEntry> idleAnimations = new List<IdleAnimationEntry>();
 
+        // Default Talking Animation
+        [SerializeField] private List<IdleAnimationEntry> talkingAnimations = new List<IdleAnimationEntry>();
+
         // Legacy field for auto-migration (hidden from Inspector)
         [HideInInspector] [SerializeField] private AnimationClip defaultIdleAnimationClip;
 
@@ -207,6 +210,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
 
             InitializeIdleAnimations();
+            InitializeTalkingAnimations();
             InitializeLookTarget();
             InitializeEmotionTagging();
             InitializeServerMotionTagging();
@@ -223,6 +227,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         private void Update()
         {
             CheckIdleSwap();
+            CheckTalkingSwap();
         }
 
         private void LateUpdate()
@@ -269,6 +274,9 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             // Client-side emotion tagging is now handled at build time via onSubtitleContentAdded
             // Server motion tagging is handled by OnServerMotionTag callback (called at exact timing from timeline)
+
+            // Transition to talking body animation
+            SetTalking(true);
         }
 
         /// <summary>
@@ -285,9 +293,15 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         public void OnSentenceEnded(FluentT.APIClient.V3.TalkMotionData data)
         {
-            if (data != null && data.isLastSentence && enableAutoEmotionReset)
+            if (data != null && data.isLastSentence)
             {
-                ResetEmotionState();
+                // Return to idle body animation when last sentence ends
+                SetTalking(false);
+
+                if (enableAutoEmotionReset)
+                {
+                    ResetEmotionState();
+                }
             }
         }
 
