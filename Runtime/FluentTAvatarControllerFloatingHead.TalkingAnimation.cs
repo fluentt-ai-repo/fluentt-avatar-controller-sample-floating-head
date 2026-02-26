@@ -17,7 +17,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         // Talking swap state
         private int currentTalkingSlot;
         private int lastPlayedTalkingIndex = -1;
-        private bool wasInTalkingTransition;
         private bool talkingSwapEnabled;
 
         // Current talking state
@@ -97,30 +96,26 @@ namespace FluentT.Avatar.SampleFloatingHead
         #region Talking Swap Logic
 
         /// <summary>
-        /// Check if talking transition completed and swap the inactive slot's clip.
-        /// Called from Update() — only runs while isTalkingState is true.
+        /// Swap the inactive talking slot's clip.
+        /// Called by OnSwapSlotReady when the active slot's entry transition settles.
+        /// The other slot is completely dormant at this point — safe to override.
         /// </summary>
-        private void CheckTalkingSwap()
+        /// <param name="activeSlot">The slot that just became fully active (0 or 1)</param>
+        private void SwapInactiveTalkingSlot(int activeSlot)
         {
-            if (!talkingSwapEnabled || !isTalkingState || animator == null)
+            if (!talkingSwapEnabled || overrideController == null)
                 return;
 
-            bool isInTransition = animator.IsInTransition(0);
+            // Recompute RMS for remaining audio portion before selecting next clip
+            RefreshRemainingAudioRMS();
 
-            // Detect transition completion: was transitioning, now not
-            if (wasInTalkingTransition && !isInTransition)
-            {
-                // Transition just completed — the previously inactive slot is now active
-                currentTalkingSlot = 1 - currentTalkingSlot;
+            currentTalkingSlot = activeSlot;
+            int otherSlot = 1 - activeSlot;
+            string otherSlotKey = otherSlot == 0 ? TALKING_OVERRIDE_0 : TALKING_OVERRIDE_1;
 
-                // Override the now-inactive slot with the next clip
-                string inactiveSlotKey = currentTalkingSlot == 0 ? TALKING_OVERRIDE_1 : TALKING_OVERRIDE_0;
-                int nextIndex = SelectNextTalkingClip(lastPlayedTalkingIndex);
-                overrideController[inactiveSlotKey] = talkingAnimations[nextIndex].clip;
-                lastPlayedTalkingIndex = nextIndex;
-            }
-
-            wasInTalkingTransition = isInTransition;
+            int nextIndex = SelectNextTalkingClip(lastPlayedTalkingIndex);
+            overrideController[otherSlotKey] = talkingAnimations[nextIndex].clip;
+            lastPlayedTalkingIndex = nextIndex;
         }
 
         #endregion
@@ -134,6 +129,18 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// <returns>Selected clip index</returns>
         private int SelectNextTalkingClip(int excludeIndex)
         {
+            // Phase 2: energy matching — select clip by audio/motion similarity
+            if (enableEnergyMatching && currentAudioRMSCurve != null)
+            {
+                // Lazy initialization: precompute caches if energy matching was enabled at runtime
+                if (motionEnergyCaches == null)
+                    InitializeEnergyMatching();
+
+                if (motionEnergyCaches != null && motionEnergyCaches.Count > 1)
+                    return SelectBestMatchingClip(currentAudioRMSCurve, excludeIndex);
+            }
+
+            // Phase 1 fallback: weighted random selection
             // Build candidate list with weights
             float totalWeight = 0f;
             List<int> candidates = new List<int>(talkingAnimations.Count);
@@ -211,12 +218,6 @@ namespace FluentT.Avatar.SampleFloatingHead
             {
                 animator.SetBool(IS_TALKING_PARAM, talking);
                 Debug.Log($"[FluentTAvatarControllerFloatingHead] SetTalking({talking})");
-            }
-
-            // Reset talking swap transition tracking when entering talking state
-            if (talking)
-            {
-                wasInTalkingTransition = false;
             }
         }
 

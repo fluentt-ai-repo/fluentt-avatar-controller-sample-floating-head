@@ -15,7 +15,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         // Idle swap state
         private int currentIdleSlot;
         private int lastPlayedIdleIndex = -1;
-        private bool wasInIdleTransition;
         private bool idleSwapEnabled;
 
         #region Idle Animation Initialization
@@ -107,30 +106,23 @@ namespace FluentT.Avatar.SampleFloatingHead
         #region Idle Swap Logic
 
         /// <summary>
-        /// Check if idle transition completed and swap the inactive slot's clip.
-        /// Called from Update().
+        /// Swap the inactive idle slot's clip.
+        /// Called by OnSwapSlotReady when the active slot's entry transition settles.
+        /// The other slot is completely dormant at this point — safe to override.
         /// </summary>
-        private void CheckIdleSwap()
+        /// <param name="activeSlot">The slot that just became fully active (0 or 1)</param>
+        private void SwapInactiveIdleSlot(int activeSlot)
         {
-            if (!idleSwapEnabled || isTalkingState || animator == null)
+            if (!idleSwapEnabled || overrideController == null)
                 return;
 
-            bool isInTransition = animator.IsInTransition(0);
+            currentIdleSlot = activeSlot;
+            int otherSlot = 1 - activeSlot;
+            string otherSlotKey = otherSlot == 0 ? IDLE_OVERRIDE_0 : IDLE_OVERRIDE_1;
 
-            // Detect transition completion: was transitioning, now not
-            if (wasInIdleTransition && !isInTransition)
-            {
-                // Transition just completed — the previously inactive slot is now active
-                currentIdleSlot = 1 - currentIdleSlot;
-
-                // Override the now-inactive slot with the next clip
-                string inactiveSlotKey = currentIdleSlot == 0 ? IDLE_OVERRIDE_1 : IDLE_OVERRIDE_0;
-                int nextIndex = SelectNextIdleClip(lastPlayedIdleIndex);
-                overrideController[inactiveSlotKey] = idleAnimations[nextIndex].clip;
-                lastPlayedIdleIndex = nextIndex;
-            }
-
-            wasInIdleTransition = isInTransition;
+            int nextIndex = SelectNextIdleClip(lastPlayedIdleIndex);
+            overrideController[otherSlotKey] = idleAnimations[nextIndex].clip;
+            lastPlayedIdleIndex = nextIndex;
         }
 
         #endregion

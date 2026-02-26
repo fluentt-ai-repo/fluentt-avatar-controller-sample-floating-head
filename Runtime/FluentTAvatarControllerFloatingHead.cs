@@ -27,6 +27,10 @@ namespace FluentT.Avatar.SampleFloatingHead
         // Default Talking Animation
         [SerializeField] private List<IdleAnimationEntry> talkingAnimations = new List<IdleAnimationEntry>();
 
+        // Energy Matching (audio RMS vs motion energy similarity)
+        [SerializeField] private bool enableEnergyMatching = false;
+        [SerializeField] [Range(0f, 1f)] private float energyBlendRatio = 0.7f;
+
         // Legacy field for auto-migration (hidden from Inspector)
         [HideInInspector] [SerializeField] private AnimationClip defaultIdleAnimationClip;
 
@@ -211,6 +215,7 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             InitializeIdleAnimations();
             InitializeTalkingAnimations();
+            InitializeEnergyMatching();
             InitializeLookTarget();
             InitializeEmotionTagging();
             InitializeServerMotionTagging();
@@ -224,10 +229,16 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
         }
 
-        private void Update()
+        /// <summary>
+        /// Called by SwapBufferNotifier when a swap-buffer state becomes fully active.
+        /// Swaps the OTHER slot's clip so it's ready before the next ExitTime transition.
+        /// </summary>
+        public void OnSwapSlotReady(SwapBufferNotifier.BufferGroup group, int activeSlot)
         {
-            CheckIdleSwap();
-            CheckTalkingSwap();
+            if (group == SwapBufferNotifier.BufferGroup.Idle)
+                SwapInactiveIdleSlot(activeSlot);
+            else
+                SwapInactiveTalkingSlot(activeSlot);
         }
 
         private void LateUpdate()
@@ -277,6 +288,9 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             // Transition to talking body animation
             SetTalking(true);
+
+            // Update audio RMS for energy matching (independent of SetTalking, refreshes per sentence)
+            UpdateAudioRMSForEnergyMatching(data);
         }
 
         /// <summary>
