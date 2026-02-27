@@ -1,5 +1,7 @@
 using UnityEngine;
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
 using UnityEngine.Animations.Rigging;
+#endif
 
 namespace FluentT.Avatar.SampleFloatingHead
 {
@@ -36,6 +38,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] private Color headVirtualTargetColor = Color.red;
         [SerializeField] private Color eyeVirtualTargetColor = Color.blue;
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
         // Look target controller
         private LookTargetController lookTargetController;
 
@@ -476,5 +479,22 @@ namespace FluentT.Avatar.SampleFloatingHead
         }
 
         #endregion
+#else
+        // Animation Rigging not installed - stub implementations
+        private void InitializeLookTarget()
+        {
+            if (enableLookTarget)
+            {
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Animation Rigging package is not installed. Look Target feature is disabled. Install 'com.unity.animation.rigging' via Package Manager.");
+                enableLookTarget = false;
+            }
+        }
+        public void FindLookTargetTransforms() { }
+        private void UpdateLookTarget() { }
+        private void LateUpdateLookTarget() { }
+        public void SetLookTarget(Transform target) { lookTarget = target; }
+        public void SetLookTargetEnabled(bool enabled) { enableLookTarget = enabled; }
+        private void CleanupVirtualTargets() { }
+#endif
     }
 }

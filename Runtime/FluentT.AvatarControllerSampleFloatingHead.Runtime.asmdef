@@ -14,6 +14,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.animation.rigging",
+            "expression": "",
+            "define": "FLUENTT_ANIMATION_RIGGING_AVAILABLE"
+        }
+    ],
     "noEngineReferences": false
 }

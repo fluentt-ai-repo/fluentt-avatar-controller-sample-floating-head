@@ -1,3 +1,4 @@
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
 using FluentT.Animation;
 using System.Collections.Generic;
 using UnityEditor;
@@ -935,3 +936,4 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         #endregion
     }
 }
+#endif

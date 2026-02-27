@@ -41,7 +41,14 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     DrawDefaultAnimationSettings();
                     break;
                 case 1: // Look Target
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
                     DrawLookTargetSettings();
+#else
+                    EditorGUILayout.HelpBox(
+                        "Look Target 기능을 사용하려면 Animation Rigging 패키지가 필요합니다.\n\n" +
+                        "설치 방법: Window > Package Manager > Unity Registry에서 'Animation Rigging'을 검색하여 설치해 주세요.",
+                        MessageType.Warning);
+#endif
                     break;
                 case 2: // Text Emotion Detection
                     DrawEmotionTaggingSettings();

@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
 using UnityEngine.Animations.Rigging;
+#endif
 
 namespace FluentT.Avatar.SampleFloatingHead
 {
@@ -72,6 +74,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         public List<EyeBlendShape> eyeLookOutRightIdx;
     }
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
     /// <summary>
     /// Simple look target controller without timeline dependency
     /// Manages virtual targets and constraints for smooth look-at behavior
@@ -793,4 +796,5 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         #endregion
     }
+#endif
 }
