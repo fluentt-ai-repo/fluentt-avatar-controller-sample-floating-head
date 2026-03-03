@@ -18,6 +18,13 @@ namespace FluentT.Avatar.SampleFloatingHead
         // External layers (0+): Available for user/controller use
         private const int BLINK_LAYER_INDEX = 0;
 
+        // Blink animation timing constants (seconds)
+        private const float BLINK_CLOSE_DURATION = 0.06f;
+        private const float BLINK_HOLD_DURATION = 0.08f;
+        private const float BLINK_OPEN_DURATION = 0.18f;
+        private const float BLINK_MAX_WEIGHT = 100f;
+        private const float BLINK_MIN_DELAY = 0.1f;
+
         #region Eye Blink Initialization
 
         private void InitializeEyeBlink()
@@ -77,8 +84,6 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Create curve data for ARKit format (empty relative path)
             TMCurveData curveData = new("");
 
-            const float maxWeight = 100f;
-
             // Create curves for both eyes
             string[] blinkShapes = { "eyeBlinkLeft", "eyeBlinkRight" };
 
@@ -89,11 +94,11 @@ namespace FluentT.Avatar.SampleFloatingHead
                     key = shapeName
                 };
 
-                // Keyframes: 0s(0) -> 0.06s(100) -> 0.08s(100) -> 0.18s(0)
+                // Keyframes: close quickly -> hold -> open slowly
                 curve.AddKeyFrame(new TMKeyframe { t = 0f, v = 0f });
-                curve.AddKeyFrame(new TMKeyframe { t = 0.06f, v = maxWeight });
-                curve.AddKeyFrame(new TMKeyframe { t = 0.08f, v = maxWeight });
-                curve.AddKeyFrame(new TMKeyframe { t = 0.18f, v = 0f });
+                curve.AddKeyFrame(new TMKeyframe { t = BLINK_CLOSE_DURATION, v = BLINK_MAX_WEIGHT });
+                curve.AddKeyFrame(new TMKeyframe { t = BLINK_HOLD_DURATION, v = BLINK_MAX_WEIGHT });
+                curve.AddKeyFrame(new TMKeyframe { t = BLINK_OPEN_DURATION, v = 0f });
 
                 curveData.AddBlendCurve(curve);
             }
@@ -116,7 +121,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             {
                 // Wait for random interval before next blink
                 float variance = Random.Range(-blinkIntervalVariance, blinkIntervalVariance);
-                float delay = Mathf.Max(0.1f, blinkInterval + variance);
+                float delay = Mathf.Max(BLINK_MIN_DELAY, blinkInterval + variance);
                 yield return new WaitForSeconds(delay);
 
                 // Play blink animation

@@ -90,7 +90,8 @@ namespace FluentT.Avatar.SampleFloatingHead
         private AnimatorOverrideController overrideController;
 
         // Cached references
-        [SerializeField] private List<SkinnedMeshRenderer> head_skmr;
+        [FormerlySerializedAs("head_skmr")]
+        [SerializeField] private List<SkinnedMeshRenderer> headSkinnedMeshRenderers;
 
         private void Reset()
         {
@@ -132,14 +133,14 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
 
             // Cache head SkinnedMeshRenderers that have blend shapes
-            head_skmr = new List<SkinnedMeshRenderer>();
+            headSkinnedMeshRenderers = new List<SkinnedMeshRenderer>();
 
             // Check self first
             if (TryGetComponent<SkinnedMeshRenderer>(out var selfSkmr))
             {
                 if (selfSkmr.sharedMesh != null && selfSkmr.sharedMesh.blendShapeCount > 0)
                 {
-                    head_skmr.Add(selfSkmr);
+                    headSkinnedMeshRenderers.Add(selfSkmr);
                 }
             }
 
@@ -149,7 +150,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             {
                 if (skmr.sharedMesh != null && skmr.sharedMesh.blendShapeCount > 0)
                 {
-                    head_skmr.Add(skmr);
+                    headSkinnedMeshRenderers.Add(skmr);
                 }
             }
 
@@ -328,37 +329,4 @@ namespace FluentT.Avatar.SampleFloatingHead
         #endregion
 
     }
-
-    #region Data Structures for Idle Animation
-
-    /// <summary>
-    /// Idle animation entry with weight for weighted random selection.
-    /// </summary>
-    [System.Serializable]
-    public class IdleAnimationEntry
-    {
-        public AnimationClip clip;
-        [Range(0f, 10f)] public float weight = 1f;
-        [Tooltip("Prevent this clip from playing twice in a row")]
-        public bool preventRepeat;
-    }
-
-    #endregion
-
-    #region Data Structures for Gesture Animation
-
-    /// <summary>
-    /// Emotion tag to gesture animation mapping.
-    /// Multiple animation clips can be assigned per tag for random variant selection.
-    /// </summary>
-    [System.Serializable]
-    public class GestureMapping
-    {
-        public string emotionTag;
-        public List<AnimationClip> animationClips = new List<AnimationClip>();
-        [Range(0f, 1f)]
-        public float blendWeight = 1f;
-    }
-
-    #endregion
 }

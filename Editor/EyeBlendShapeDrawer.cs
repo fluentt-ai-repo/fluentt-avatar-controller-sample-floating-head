@@ -35,19 +35,19 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             Rect scaleRect = new Rect(position.x + nameWidth + idxWidth + fieldSpacing * 2, position.y + lineHeight * 2 + spacing * 2, scaleWidth, lineHeight);
 
             // Get properties
-            var skmrProp = property.FindPropertyRelative("skmr");
+            var skmrProp = property.FindPropertyRelative("skinnedMeshRenderer");
             var blendShapeNameProp = property.FindPropertyRelative("blendShapeName");
             var blendShapeIdxProp = property.FindPropertyRelative("blendShapeIdx");
             var scaleProp = property.FindPropertyRelative("scale");
 
             // Draw SkinnedMeshRenderer (editable)
-            EditorGUI.PropertyField(skmrRect, skmrProp, new GUIContent("SKMR"));
+            EditorGUI.PropertyField(skmrRect, skmrProp, new GUIContent("Renderer"));
 
             // Draw blend shape dropdown
-            SkinnedMeshRenderer skmr = skmrProp.objectReferenceValue as SkinnedMeshRenderer;
-            if (skmr != null && skmr.sharedMesh != null)
+            SkinnedMeshRenderer skinnedMeshRenderer = skmrProp.objectReferenceValue as SkinnedMeshRenderer;
+            if (skinnedMeshRenderer != null && skinnedMeshRenderer.sharedMesh != null)
             {
-                var mesh = skmr.sharedMesh;
+                var mesh = skinnedMeshRenderer.sharedMesh;
                 int blendShapeCount = mesh.blendShapeCount;
 
                 if (blendShapeCount > 0)

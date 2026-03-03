@@ -88,7 +88,10 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             // Create curve data for ARKit format (empty relative path)
             TMCurveData curveData = new("");
 
-            const float maxWeight = 100f;
+            const float blinkCloseDuration = 0.06f;
+            const float blinkHoldDuration = 0.08f;
+            const float blinkOpenDuration = 0.18f;
+            const float blinkMaxWeight = 100f;
 
             // Create curves for both eyes
             string[] blinkShapes = { "eyeBlinkLeft", "eyeBlinkRight" };
@@ -100,11 +103,11 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     key = shapeName
                 };
 
-                // Keyframes: 0s(0) -> 0.06s(100) -> 0.08s(100) -> 0.18s(0)
+                // Keyframes: close quickly -> hold -> open slowly
                 curve.AddKeyFrame(new TMKeyframe { t = 0f, v = 0f });
-                curve.AddKeyFrame(new TMKeyframe { t = 0.06f, v = maxWeight });
-                curve.AddKeyFrame(new TMKeyframe { t = 0.08f, v = maxWeight });
-                curve.AddKeyFrame(new TMKeyframe { t = 0.18f, v = 0f });
+                curve.AddKeyFrame(new TMKeyframe { t = blinkCloseDuration, v = blinkMaxWeight });
+                curve.AddKeyFrame(new TMKeyframe { t = blinkHoldDuration, v = blinkMaxWeight });
+                curve.AddKeyFrame(new TMKeyframe { t = blinkOpenDuration, v = 0f });
 
                 curveData.AddBlendCurve(curve);
             }

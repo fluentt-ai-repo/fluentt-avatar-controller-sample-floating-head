@@ -4,7 +4,8 @@
 
 ## 버전 목록
 
-- [v0.2.1](v0.2.1.md) - 2026-02-26 - Talking Animation / Energy Matching 제거 (Idle 전용 경량화) (현재)
+- [v0.2.2](v0.2.2.md) - 2026-03-02 - 코드 품질 개선 (파일 분할, 네이밍, 매직 넘버 상수화) (현재)
+- [v0.2.1](v0.2.1.md) - 2026-02-26 - Talking Animation / Energy Matching 제거 (Idle 전용 경량화)
 - [v0.2.0](v0.2.0.md) - 2026-02-26 - Talking Animation 시스템 및 Energy Matching
 - [v0.1.8](v0.1.8.md) - 2026-02-24 - 멀티 Idle 애니메이션 시스템 및 override 클립 네이밍 정리
 - [v0.1.7](v0.1.7.md) - 2026-02-24 - 에디터 UI 리네이밍 및 감정 리셋 토글
