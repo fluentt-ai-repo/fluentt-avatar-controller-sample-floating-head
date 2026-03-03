@@ -388,6 +388,376 @@ namespace FluentT.Avatar.SampleFloatingHead
         }
 
         #endregion
+
+        #region Runtime Rig Setup/Destroy
+
+        /// <summary>
+        /// Runtime version of SetupLookTargetRig.
+        /// Creates Animation Rigging hierarchy (RigBuilder, Rig, MultiAimConstraints, VirtualTargets) at runtime
+        /// and calls RigBuilder.Build() to activate.
+        /// </summary>
+        public void SetupLookTargetRigAtRuntime()
+        {
+            Debug.Log("[FluentTAvatarControllerFloatingHead] Setting up look target rig at runtime...");
+
+            var avatar = gameObject;
+
+            // 1. Ensure RigBuilder exists
+            var rigBuilder = avatar.GetComponent<RigBuilder>();
+            if (rigBuilder == null)
+            {
+                rigBuilder = avatar.AddComponent<RigBuilder>();
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Added RigBuilder component");
+            }
+
+            // 2. Find or create TargetTracking
+            Transform targetTracking = transform.Find("TargetTracking");
+            if (targetTracking == null)
+            {
+                var targetTrackingGO = new GameObject("TargetTracking");
+                targetTracking = targetTrackingGO.transform;
+                targetTracking.SetParent(transform);
+                targetTracking.localPosition = Vector3.zero;
+                targetTracking.localRotation = Quaternion.identity;
+                targetTracking.localScale = Vector3.one;
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Created TargetTracking GameObject");
+            }
+            targetTracking.gameObject.SetActive(true);
+
+            // Add Rig component
+            var rig = targetTracking.GetComponent<Rig>();
+            if (rig == null)
+            {
+                rig = targetTracking.gameObject.AddComponent<Rig>();
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Added Rig component to TargetTracking");
+            }
+            rig.weight = 1f;
+
+            // Register Rig in RigBuilder layers
+            bool rigFound = false;
+            for (int i = 0; i < rigBuilder.layers.Count; i++)
+            {
+                if (rigBuilder.layers[i].rig == rig)
+                {
+                    rigFound = true;
+                    break;
+                }
+            }
+            if (!rigFound)
+            {
+                rigBuilder.layers.Add(new RigLayer(rig));
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Added Rig to RigBuilder layers");
+            }
+
+            // 3. Auto-find bone transforms
+            FindLookTargetTransforms();
+
+            // 4. Find or create avatar virtual target group
+            Transform avatarVirtualTargetGroup = RuntimeFindOrCreateAvatarVirtualTargetGroup();
+
+            // 5. Setup HeadTracking + MultiAimConstraint
+            if (enableHeadControl && lookHead != null)
+            {
+                Transform headTracking = targetTracking.Find("HeadTracking");
+                if (headTracking == null)
+                {
+                    var headTrackingGO = new GameObject("HeadTracking");
+                    headTracking = headTrackingGO.transform;
+                    headTracking.SetParent(targetTracking);
+                    headTracking.localPosition = Vector3.zero;
+                    headTracking.localRotation = Quaternion.identity;
+                    headTracking.localScale = Vector3.one;
+                }
+
+                var headConstraint = headTracking.GetComponent<MultiAimConstraint>();
+                if (headConstraint == null)
+                {
+                    headConstraint = headTracking.gameObject.AddComponent<MultiAimConstraint>();
+                    headConstraint.weight = 1f;
+                    var data = headConstraint.data;
+                    data.constrainedObject = lookHead;
+                    data.aimAxis = MultiAimConstraintData.Axis.Z;
+                    data.upAxis = MultiAimConstraintData.Axis.Y;
+                    data.limits = new Vector2(-45f, 45f);
+                    // Runtime AddComponent does NOT call Reset()/SetDefaultValues(),
+                    // so constrainedAxes defaults to (false,false,false) instead of (true,true,true).
+                    // Without this, axesMask=(0,0,0) and no rotation is applied.
+                    data.constrainedXAxis = true;
+                    data.constrainedYAxis = true;
+                    data.constrainedZAxis = true;
+                    headConstraint.data = data;
+                }
+
+                // Create HeadVirtualTarget
+                Transform headVirtualTarget = avatarVirtualTargetGroup.Find("HeadVirtualTarget");
+                if (headVirtualTarget == null)
+                {
+                    var vtGO = new GameObject("HeadVirtualTarget");
+                    headVirtualTarget = vtGO.transform;
+                    headVirtualTarget.SetParent(avatarVirtualTargetGroup);
+                    headVirtualTarget.position = lookHead.position + lookHead.forward * 2f;
+                }
+
+                // Add to constraint source objects
+                var constraintData = headConstraint.data;
+                var sourceObjects = constraintData.sourceObjects;
+                sourceObjects.Clear();
+                sourceObjects.Add(new WeightedTransform(headVirtualTarget, 1f));
+                constraintData.sourceObjects = sourceObjects;
+                headConstraint.data = constraintData;
+
+                headAimConstraint = headConstraint;
+                headVirtualTargetRef = headVirtualTarget;
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Head tracking setup complete");
+            }
+
+            // 6. Setup Eye Tracking
+            if (enableEyeControl && eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt)
+            {
+                if (eyeControlStrategy == EEyeControlStrategy.TransformCorrected)
+                {
+                    // Separate left/right eye virtual targets
+                    SetupSingleEyeTrackingAtRuntime(targetTracking, avatarVirtualTargetGroup,
+                        "LeftEyeTracking", lookLeftEyeBall, "LeftEyeVirtualTarget", ref leftEyeAimConstraint, ref leftEyeVirtualTargetRef);
+                    SetupSingleEyeTrackingAtRuntime(targetTracking, avatarVirtualTargetGroup,
+                        "RightEyeTracking", lookRightEyeBall, "RightEyeVirtualTarget", ref rightEyeAimConstraint, ref rightEyeVirtualTargetRef);
+                }
+                else // Transform mode — shared eye virtual target
+                {
+                    // Create shared EyeVirtualTarget
+                    Transform eyeVirtualTarget = avatarVirtualTargetGroup.Find("EyeVirtualTarget");
+                    if (eyeVirtualTarget == null)
+                    {
+                        var vtGO = new GameObject("EyeVirtualTarget");
+                        eyeVirtualTarget = vtGO.transform;
+                        eyeVirtualTarget.SetParent(avatarVirtualTargetGroup);
+                        if (lookLeftEyeBall != null && lookRightEyeBall != null && lookHead != null)
+                        {
+                            Vector3 eyeCenter = (lookLeftEyeBall.position + lookRightEyeBall.position) * 0.5f;
+                            eyeVirtualTarget.position = eyeCenter + lookHead.forward * 2f;
+                        }
+                        else
+                        {
+                            eyeVirtualTarget.position = new Vector3(0, 0, 2);
+                        }
+                    }
+                    eyeVirtualTargetRef = eyeVirtualTarget;
+
+                    SetupSingleEyeTrackingAtRuntime(targetTracking, avatarVirtualTargetGroup,
+                        "LeftEyeTracking", lookLeftEyeBall, null, ref leftEyeAimConstraint, ref leftEyeVirtualTargetRef, eyeVirtualTarget);
+                    SetupSingleEyeTrackingAtRuntime(targetTracking, avatarVirtualTargetGroup,
+                        "RightEyeTracking", lookRightEyeBall, null, ref rightEyeAimConstraint, ref rightEyeVirtualTargetRef, eyeVirtualTarget);
+                }
+            }
+            else if (enableEyeControl && eyeControlStrategy == EEyeControlStrategy.BlendWeightFluentt)
+            {
+                // BlendWeightFluentt: only create eye virtual target for direction calculation
+                Transform eyeVirtualTarget = avatarVirtualTargetGroup.Find("EyeVirtualTarget");
+                if (eyeVirtualTarget == null)
+                {
+                    var vtGO = new GameObject("EyeVirtualTarget");
+                    eyeVirtualTarget = vtGO.transform;
+                    eyeVirtualTarget.SetParent(avatarVirtualTargetGroup);
+                    if (lookLeftEyeBall != null && lookRightEyeBall != null && lookHead != null)
+                    {
+                        Vector3 eyeCenter = (lookLeftEyeBall.position + lookRightEyeBall.position) * 0.5f;
+                        eyeVirtualTarget.position = eyeCenter + lookHead.forward * 2f;
+                    }
+                    else
+                    {
+                        eyeVirtualTarget.position = new Vector3(0, 0, 2);
+                    }
+                }
+                eyeVirtualTargetRef = eyeVirtualTarget;
+            }
+
+            // 7. Build the rig
+            bool buildResult = rigBuilder.Build();
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] RigBuilder.Build() = {buildResult}, layers: {rigBuilder.layers.Count}");
+
+            if (!buildResult)
+            {
+                Debug.LogError("[FluentTAvatarControllerFloatingHead] RigBuilder.Build() returned false!");
+            }
+
+            // 8. Initialize LookTarget controller
+            enableLookTarget = true;
+            InitializeLookTarget();
+
+            Debug.Log("[FluentTAvatarControllerFloatingHead] Runtime rig setup complete!");
+        }
+
+        /// <summary>
+        /// Helper: setup a single eye tracking constraint at runtime
+        /// </summary>
+        private void SetupSingleEyeTrackingAtRuntime(
+            Transform targetTracking, Transform avatarVirtualTargetGroup,
+            string trackingName, Transform eyeBoneTransform, string virtualTargetName,
+            ref MultiAimConstraint aimConstraintField, ref Transform virtualTargetRefField,
+            Transform sharedVirtualTarget = null)
+        {
+            if (eyeBoneTransform == null)
+                return;
+
+            Transform eyeTracking = targetTracking.Find(trackingName);
+            if (eyeTracking == null)
+            {
+                var eyeTrackingGO = new GameObject(trackingName);
+                eyeTracking = eyeTrackingGO.transform;
+                eyeTracking.SetParent(targetTracking);
+                eyeTracking.localPosition = Vector3.zero;
+                eyeTracking.localRotation = Quaternion.identity;
+                eyeTracking.localScale = Vector3.one;
+            }
+
+            var eyeConstraint = eyeTracking.GetComponent<MultiAimConstraint>();
+            if (eyeConstraint == null)
+            {
+                eyeConstraint = eyeTracking.gameObject.AddComponent<MultiAimConstraint>();
+                eyeConstraint.weight = 1f;
+                var data = eyeConstraint.data;
+                data.constrainedObject = eyeBoneTransform;
+                data.aimAxis = MultiAimConstraintData.Axis.Z;
+                data.upAxis = MultiAimConstraintData.Axis.Y;
+                data.limits = new Vector2(-20f, 20f);
+                // Runtime AddComponent does NOT call Reset()/SetDefaultValues(),
+                // so constrainedAxes defaults to (false,false,false) instead of (true,true,true).
+                data.constrainedXAxis = true;
+                data.constrainedYAxis = true;
+                data.constrainedZAxis = true;
+                eyeConstraint.data = data;
+            }
+
+            // Determine which virtual target to use
+            Transform targetVT = sharedVirtualTarget;
+            if (targetVT == null && virtualTargetName != null)
+            {
+                targetVT = avatarVirtualTargetGroup.Find(virtualTargetName);
+                if (targetVT == null)
+                {
+                    var vtGO = new GameObject(virtualTargetName);
+                    targetVT = vtGO.transform;
+                    targetVT.SetParent(avatarVirtualTargetGroup);
+                    targetVT.position = eyeBoneTransform.position + (lookHead != null ? lookHead.forward : Vector3.forward) * 2f;
+                }
+                virtualTargetRefField = targetVT;
+            }
+
+            // Add to constraint source objects
+            var constraintData = eyeConstraint.data;
+            var sourceObjects = constraintData.sourceObjects;
+            sourceObjects.Clear();
+            sourceObjects.Add(new WeightedTransform(targetVT, 1f));
+            constraintData.sourceObjects = sourceObjects;
+            eyeConstraint.data = constraintData;
+
+            aimConstraintField = eyeConstraint;
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] {trackingName} setup complete");
+        }
+
+        /// <summary>
+        /// Destroy all runtime-created rig objects and rebuild with empty state.
+        /// </summary>
+        public void DestroyLookTargetRigAtRuntime()
+        {
+            Debug.Log("[FluentTAvatarControllerFloatingHead] Destroying look target rig at runtime...");
+
+            // 1. Disable and clear LookTargetController
+            if (lookTargetController != null)
+            {
+                lookTargetController.Disable();
+                lookTargetController = null;
+            }
+            enableLookTarget = false;
+
+            // 2. Clear RigBuilder — tears down the PlayableGraph.
+            var rigBuilder = GetComponent<RigBuilder>();
+            if (rigBuilder != null)
+            {
+                rigBuilder.Clear();
+                rigBuilder.layers.Clear();
+                Debug.Log("[FluentTAvatarControllerFloatingHead] RigBuilder cleared");
+            }
+
+            // 3. Strip constraint/rig components from TargetTracking, but keep the GameObjects.
+            //    RigBuilder.Build() registers PropertyStreamHandle bindings in the Animator's
+            //    internal native cache (e.g. path "TargetTracking/HeadTracking").
+            //    These bindings persist even after Clear()/Rebind()/controller reassignment.
+            //    If the GameObjects are destroyed, every AnimatorOverrideController.set_Item
+            //    call triggers "Could not resolve" warnings indefinitely.
+            //    By keeping the empty GameObjects (deactivated), the transform paths remain
+            //    resolvable and no warnings are produced.
+            Transform targetTracking = transform.Find("TargetTracking");
+            if (targetTracking != null)
+            {
+                // Remove all constraint and rig components
+                foreach (var mac in targetTracking.GetComponentsInChildren<MultiAimConstraint>(true))
+                    DestroyImmediate(mac);
+                var rig = targetTracking.GetComponent<Rig>();
+                if (rig != null)
+                    DestroyImmediate(rig);
+
+                targetTracking.gameObject.SetActive(false);
+                Debug.Log("[FluentTAvatarControllerFloatingHead] TargetTracking stripped and deactivated");
+            }
+
+            // 4. Destroy avatar virtual target group
+            CleanupVirtualTargets();
+
+            // 5. Clear serialized field references
+            headAimConstraint = null;
+            leftEyeAimConstraint = null;
+            rightEyeAimConstraint = null;
+            headVirtualTargetRef = null;
+            eyeVirtualTargetRef = null;
+            leftEyeVirtualTargetRef = null;
+            rightEyeVirtualTargetRef = null;
+
+            Debug.Log("[FluentTAvatarControllerFloatingHead] Runtime rig destroy complete!");
+        }
+
+        /// <summary>
+        /// Manually trigger RigBuilder.Build() and log the result.
+        /// </summary>
+        public void RebuildRig()
+        {
+            var rigBuilder = GetComponent<RigBuilder>();
+            if (rigBuilder == null)
+            {
+                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] No RigBuilder found on this GameObject");
+                return;
+            }
+
+            int layerCount = rigBuilder.layers.Count;
+            rigBuilder.Build();
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] RigBuilder.Build() called — {layerCount} layer(s)");
+        }
+
+        /// <summary>
+        /// Helper: Find or create the VirtualTargets container and avatar group at runtime
+        /// </summary>
+        private Transform RuntimeFindOrCreateAvatarVirtualTargetGroup()
+        {
+            GameObject container = GameObject.Find("VirtualTargets");
+            if (container == null)
+            {
+                container = new GameObject("VirtualTargets");
+                Debug.Log("[FluentTAvatarControllerFloatingHead] Created VirtualTargets container");
+            }
+
+            string groupName = $"{gameObject.name}_VirtualTargets";
+            Transform group = container.transform.Find(groupName);
+            if (group == null)
+            {
+                var groupGO = new GameObject(groupName);
+                group = groupGO.transform;
+                group.SetParent(container.transform);
+                Debug.Log($"[FluentTAvatarControllerFloatingHead] Created {groupName} group");
+            }
+            return group;
+        }
+
+        #endregion
 #else
         // Animation Rigging not installed - stub implementations
         private void InitializeLookTarget()
@@ -404,6 +774,18 @@ namespace FluentT.Avatar.SampleFloatingHead
         public void SetLookTarget(Transform target) { lookTarget = target; }
         public void SetLookTargetEnabled(bool enabled) { enableLookTarget = enabled; }
         private void CleanupVirtualTargets() { }
+        public void SetupLookTargetRigAtRuntime()
+        {
+            Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Animation Rigging package is not installed. Cannot setup rig at runtime.");
+        }
+        public void DestroyLookTargetRigAtRuntime()
+        {
+            Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Animation Rigging package is not installed. Cannot destroy rig at runtime.");
+        }
+        public void RebuildRig()
+        {
+            Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Animation Rigging package is not installed. Cannot rebuild rig.");
+        }
 #endif
     }
 }

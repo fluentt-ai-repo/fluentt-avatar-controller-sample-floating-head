@@ -209,6 +209,22 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("eyeVirtualTargetColor"));
                 EditorGUI.indentLevel--;
             }
+
+            // Runtime Rig Control (Play mode only)
+            if (Application.isPlaying)
+            {
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField("Runtime Rig Control", EditorStyles.boldLabel);
+
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("Setup Rig"))
+                    controller.SetupLookTargetRigAtRuntime();
+                if (GUILayout.Button("Destroy Rig"))
+                    controller.DestroyLookTargetRigAtRuntime();
+                if (GUILayout.Button("Rebuild"))
+                    controller.RebuildRig();
+                EditorGUILayout.EndHorizontal();
+            }
         }
     }
 }
