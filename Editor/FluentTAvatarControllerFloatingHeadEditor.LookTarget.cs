@@ -11,6 +11,13 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
     /// </summary>
     public partial class FluentTAvatarControllerFloatingHeadEditor
     {
+        private static readonly GUIContent gc_idleLook = new("Idle Look Settings", "Look target behavior when idle (not talking)");
+        private static readonly GUIContent gc_talkingLook = new("Talking Look Settings", "Look target behavior when talking");
+        private static readonly GUIContent gc_eyeStrategy = new("Eye Control Strategy", "Choose between Transform (Animation Rigging) or BlendShape control");
+        private static readonly GUIContent gc_eyeBlendShapes = new("Eye Blend Shapes", "Configure eye look blend shapes");
+        private static readonly GUIContent gc_eyeAngleLimit = new("Eye Angle Limit", "Maximum angle the eyes can rotate");
+        private static readonly GUIContent gc_eyeAngleThreshold = new("Eye Angle Threshold", "Hysteresis threshold for eye tracking");
+
         private void DrawLookTargetSettings()
         {
             var controller = (FluentTAvatarControllerFloatingHead)target;
@@ -18,7 +25,6 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             EditorGUILayout.LabelField("Look Target Settings", EditorStyles.boldLabel);
 
             // Track enableLookTarget changes
-            var enableLookTargetProp = serializedObject.FindProperty("enableLookTarget");
             bool wasEnabled = enableLookTargetProp.boolValue;
 
             EditorGUILayout.PropertyField(enableLookTargetProp);
@@ -38,11 +44,11 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 serializedObject.Update();
             }
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("lookTarget"));
+            EditorGUILayout.PropertyField(lookTargetProp);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Cached Head Renderers", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("headSkinnedMeshRenderers"));
+            EditorGUILayout.PropertyField(headSkinnedMeshRenderersProp);
 
             if (GUILayout.Button("Find Head SkinnedMeshRenderers"))
             {
@@ -77,7 +83,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Look Target Transforms", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("lookHead"));
+            EditorGUILayout.PropertyField(lookHeadProp);
 
             if (GUILayout.Button("Find Look Target Transforms"))
             {
@@ -87,27 +93,24 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Animation Rigging Constraints", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("headAimConstraint"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("leftEyeAimConstraint"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("rightEyeAimConstraint"));
+            EditorGUILayout.PropertyField(headAimConstraintProp);
+            EditorGUILayout.PropertyField(leftEyeAimConstraintProp);
+            EditorGUILayout.PropertyField(rightEyeAimConstraintProp);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Eye Transforms", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("lookLeftEyeBall"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("lookRightEyeBall"));
+            EditorGUILayout.PropertyField(lookLeftEyeBallProp);
+            EditorGUILayout.PropertyField(lookRightEyeBallProp);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Look Target Strategy Settings", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("idleLookSettings"),
-                new GUIContent("Idle Look Settings", "Look target behavior when idle (not talking)"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("talkingLookSettings"),
-                new GUIContent("Talking Look Settings", "Look target behavior when talking"));
+            EditorGUILayout.PropertyField(idleLookSettingsProp, gc_idleLook);
+            EditorGUILayout.PropertyField(talkingLookSettingsProp, gc_talkingLook);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Head Control Settings", EditorStyles.boldLabel);
 
             // Track enableHeadControl changes
-            var enableHeadControlProp = serializedObject.FindProperty("enableHeadControl");
             bool wasHeadEnabled = enableHeadControlProp.boolValue;
             EditorGUILayout.PropertyField(enableHeadControlProp);
 
@@ -126,20 +129,17 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 serializedObject.Update();
             }
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("headSpeed"));
+            EditorGUILayout.PropertyField(headSpeedProp);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Eye Control Settings", EditorStyles.boldLabel);
 
             // Track enableEyeControl changes
-            var enableEyeControlProp = serializedObject.FindProperty("enableEyeControl");
             bool wasEyeEnabled = enableEyeControlProp.boolValue;
             EditorGUILayout.PropertyField(enableEyeControlProp);
 
             // Eye control strategy selection
-            var eyeControlStrategyProp = serializedObject.FindProperty("eyeControlStrategy");
-            EditorGUILayout.PropertyField(eyeControlStrategyProp,
-                new GUIContent("Eye Control Strategy", "Choose between Transform (Animation Rigging) or BlendShape control"));
+            EditorGUILayout.PropertyField(eyeControlStrategyProp, gc_eyeStrategy);
 
             // Handle Eye Control toggle (only in Editor, not Play mode)
             if (!Application.isPlaying && enableEyeControlProp.boolValue != wasEyeEnabled)
@@ -177,12 +177,9 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 EditorGUILayout.EndHorizontal();
                 EditorGUILayout.Space(5);
 
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("eyeBlendShapes"),
-                    new GUIContent("Eye Blend Shapes", "Configure eye look blend shapes"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("eyeAngleLimit"),
-                    new GUIContent("Eye Angle Limit", "Maximum angle the eyes can rotate"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("eyeAngleLimitThreshold"),
-                    new GUIContent("Eye Angle Threshold", "Hysteresis threshold for eye tracking"));
+                EditorGUILayout.PropertyField(eyeBlendShapesProp, gc_eyeBlendShapes);
+                EditorGUILayout.PropertyField(eyeAngleLimitProp, gc_eyeAngleLimit);
+                EditorGUILayout.PropertyField(eyeAngleLimitThresholdProp, gc_eyeAngleThreshold);
             }
             else
             {
@@ -192,21 +189,21 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     MessageType.Info);
             }
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("eyeSpeed"));
+            EditorGUILayout.PropertyField(eyeSpeedProp);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Gizmo Visualization", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("showTargetGizmos"));
+            EditorGUILayout.PropertyField(showTargetGizmosProp);
 
-            if (serializedObject.FindProperty("showTargetGizmos").boolValue)
+            if (showTargetGizmosProp.boolValue)
             {
                 EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("actualTargetGizmoSize"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("headVirtualTargetGizmoSize"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("eyeVirtualTargetGizmoSize"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("actualTargetColor"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("headVirtualTargetColor"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("eyeVirtualTargetColor"));
+                EditorGUILayout.PropertyField(actualTargetGizmoSizeProp);
+                EditorGUILayout.PropertyField(headVirtualTargetGizmoSizeProp);
+                EditorGUILayout.PropertyField(eyeVirtualTargetGizmoSizeProp);
+                EditorGUILayout.PropertyField(actualTargetColorProp);
+                EditorGUILayout.PropertyField(headVirtualTargetColorProp);
+                EditorGUILayout.PropertyField(eyeVirtualTargetColorProp);
                 EditorGUI.indentLevel--;
             }
 

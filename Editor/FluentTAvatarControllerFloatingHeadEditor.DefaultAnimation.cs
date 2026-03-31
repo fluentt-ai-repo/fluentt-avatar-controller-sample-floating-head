@@ -13,13 +13,20 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             ("Idle 1", SwapBufferNotifier.BufferGroup.Idle, 1),
         };
 
+        // Cached GUIContent - Default Animation
+        private static readonly GUIContent gc_avatar = new("Avatar", "FluentTAvatar component reference");
+        private static readonly GUIContent gc_animController = new("Animator Controller", "Runtime Animator Controller for body animations (required for Default Idle and Server Motion Tagging)");
+        private static readonly GUIContent gc_idleAnims = new("Idle Animations", "List of idle animation clips with weights for random selection");
+
+        // SwapBuffer check cache
+        private int cachedSwapBufferMissing = -1;
+        private Object cachedSwapBufferController;
+
         private void DrawDefaultAnimationSettings()
         {
             EditorGUILayout.LabelField("References", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("avatar"),
-                new GUIContent("Avatar", "FluentTAvatar component reference"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("animatorController"),
-                new GUIContent("Animator Controller", "Runtime Animator Controller for body animations (required for Default Idle and Server Motion Tagging)"));
+            EditorGUILayout.PropertyField(avatarProp, gc_avatar);
+            EditorGUILayout.PropertyField(animatorControllerProp, gc_animController);
 
             // Auto-setup button for SwapBufferNotifier behaviours
             DrawSwapBufferSetup();
@@ -43,8 +50,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorGUILayout.Space();
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("idleAnimations"),
-                new GUIContent("Idle Animations", "List of idle animation clips with weights for random selection"), true);
+            EditorGUILayout.PropertyField(idleAnimationsProp, gc_idleAnims, true);
         }
 
         #region SwapBuffer Auto-Setup
@@ -56,13 +62,18 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         /// </summary>
         private void DrawSwapBufferSetup()
         {
-            var controllerProp = serializedObject.FindProperty("animatorController");
-            var controllerRef = controllerProp.objectReferenceValue as AnimatorController;
+            var controllerRef = animatorControllerProp.objectReferenceValue as AnimatorController;
             if (controllerRef == null)
                 return;
 
-            // Check if setup is needed
-            int missingCount = CountMissingSwapBufferNotifiers(controllerRef);
+            // Cache the check - only recount when controller reference changes
+            if (cachedSwapBufferController != controllerRef || cachedSwapBufferMissing < 0)
+            {
+                cachedSwapBufferMissing = CountMissingSwapBufferNotifiers(controllerRef);
+                cachedSwapBufferController = controllerRef;
+            }
+
+            int missingCount = cachedSwapBufferMissing;
             if (missingCount > 0)
             {
                 EditorGUILayout.Space(4);
@@ -74,6 +85,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 if (GUILayout.Button("Setup SwapBuffer Behaviours"))
                 {
                     AttachSwapBufferNotifiers(controllerRef);
+                    cachedSwapBufferMissing = -1; // Invalidate cache
                 }
             }
         }

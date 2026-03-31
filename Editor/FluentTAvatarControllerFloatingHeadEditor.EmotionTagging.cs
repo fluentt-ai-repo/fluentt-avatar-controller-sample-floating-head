@@ -5,6 +5,10 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 {
     public partial class FluentTAvatarControllerFloatingHeadEditor
     {
+        private static readonly GUIContent gc_enableEmotionDetection = new("Enable Text Emotion Detection", "Enable client-side regex-based emotion detection from subtitle text");
+        private static readonly GUIContent gc_maxTags = new("Max Tags Per Sentence", "Maximum number of emotion tags to apply per sentence");
+        private static readonly GUIContent gc_keywordDataset = new("Keyword Dataset", "ScriptableObject containing regex patterns mapped to emotion tags");
+
         private void DrawEmotionTaggingSettings()
         {
             EditorGUILayout.LabelField("Text Emotion Detection", EditorStyles.boldLabel);
@@ -23,17 +27,13 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorGUILayout.Space();
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("enableTextEmotionDetection"),
-                new GUIContent("Enable Text Emotion Detection", "Enable client-side regex-based emotion detection from subtitle text"));
+            EditorGUILayout.PropertyField(enableTextEmotionDetectionProp, gc_enableEmotionDetection);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Emotion Detection", EditorStyles.boldLabel);
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("maxEmotionTagsPerSentence"),
-                new GUIContent("Max Tags Per Sentence", "Maximum number of emotion tags to apply per sentence"));
-
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("emotionKeywordDataset"),
-                new GUIContent("Keyword Dataset", "ScriptableObject containing regex patterns mapped to emotion tags"));
+            EditorGUILayout.PropertyField(maxEmotionTagsPerSentenceProp, gc_maxTags);
+            EditorGUILayout.PropertyField(emotionKeywordDatasetProp, gc_keywordDataset);
         }
     }
 }

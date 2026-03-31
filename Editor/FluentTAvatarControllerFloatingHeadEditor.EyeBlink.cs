@@ -6,6 +6,12 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 {
     public partial class FluentTAvatarControllerFloatingHeadEditor
     {
+        private static readonly GUIContent gc_enableBlink = new("Enable Eye Blink", "Enable automatic eye blinking");
+        private static readonly GUIContent gc_blinkClip = new("Blink Clip", "Custom TMAnimationClip for eye blink. If null, uses default ARKit eyeBlink animation.");
+        private static readonly GUIContent gc_blinkBlendMode = new("Blend Mode", "How blink layer values combine with face animation.\n\n\u2022 Override: Replace current value\n\u2022 Additive: Add to current value\n\u2022 SoftMax2D: Soft blend (prevents saturation)\n\u2022 Max: Take the larger value");
+        private static readonly GUIContent gc_blinkInterval = new("Blink Interval", "Average time between blinks (seconds)");
+        private static readonly GUIContent gc_blinkVariance = new("Interval Variance", "Random variance in blink timing (\u00b1seconds)");
+
         private void DrawEyeBlinkSettings()
         {
             EditorGUILayout.LabelField("Eye Blink Settings", EditorStyles.boldLabel);
@@ -23,15 +29,12 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorGUILayout.Space();
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("enableEyeBlink"),
-                new GUIContent("Enable Eye Blink", "Enable automatic eye blinking"));
+            EditorGUILayout.PropertyField(enableEyeBlinkProp, gc_enableBlink);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Blink Animation", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("blinkClip"),
-                new GUIContent("Blink Clip", "Custom TMAnimationClip for eye blink. If null, uses default ARKit eyeBlink animation."));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("blinkBlendMode"),
-                new GUIContent("Blend Mode", "How blink layer values combine with face animation.\n\n• Override: Replace current value\n• Additive: Add to current value\n• SoftMax2D: Soft blend (prevents saturation)\n• Max: Take the larger value"));
+            EditorGUILayout.PropertyField(blinkClipProp, gc_blinkClip);
+            EditorGUILayout.PropertyField(blinkBlendModeProp, gc_blinkBlendMode);
 
             // Create Blink Clip button
             EditorGUILayout.BeginHorizontal();
@@ -50,19 +53,12 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Timing Settings", EditorStyles.boldLabel);
 
-            var blinkIntervalProp = serializedObject.FindProperty("blinkInterval");
-            blinkIntervalProp.floatValue = EditorGUILayout.FloatField(
-                new GUIContent("Blink Interval", "Average time between blinks (seconds)"),
-                blinkIntervalProp.floatValue);
-
-            var blinkVarianceProp = serializedObject.FindProperty("blinkIntervalVariance");
-            blinkVarianceProp.floatValue = EditorGUILayout.FloatField(
-                new GUIContent("Interval Variance", "Random variance in blink timing (±seconds)"),
-                blinkVarianceProp.floatValue);
+            blinkIntervalProp.floatValue = EditorGUILayout.FloatField(gc_blinkInterval, blinkIntervalProp.floatValue);
+            blinkIntervalVarianceProp.floatValue = EditorGUILayout.FloatField(gc_blinkVariance, blinkIntervalVarianceProp.floatValue);
 
             // Show calculated range
-            float interval = serializedObject.FindProperty("blinkInterval").floatValue;
-            float variance = serializedObject.FindProperty("blinkIntervalVariance").floatValue;
+            float interval = blinkIntervalProp.floatValue;
+            float variance = blinkIntervalVarianceProp.floatValue;
             float minInterval = Mathf.Max(0.1f, interval - variance);
             float maxInterval = interval + variance;
             EditorGUILayout.HelpBox(

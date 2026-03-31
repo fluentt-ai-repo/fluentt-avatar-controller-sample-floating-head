@@ -2,6 +2,7 @@ using FluentT.Animation;
 using FluentT.Talkmotion;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 #if FLUENTT_ANIMATION_RIGGING_AVAILABLE
 using UnityEngine.Animations.Rigging;
 #endif
@@ -75,6 +76,12 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] public bool enableAutoEmotionReset = true;
         [FormerlySerializedAs("emotionMotionMappings")]
         [SerializeField] public List<GestureMapping> gestureMappings = new List<GestureMapping>();
+
+        // One-Shot Motion
+        [SerializeField] private List<OneShotMotionEntry> oneShotMotions = new List<OneShotMotionEntry>();
+        [SerializeField] private List<OneShotMotionGroup> oneShotMotionGroups = new List<OneShotMotionGroup>();
+        public UnityEvent<string> onOneShotMotionStarted;
+        public UnityEvent<string> onOneShotMotionEnded;
 
         // Eye Blink
         [SerializeField] public bool enableEyeBlink = false;
@@ -282,6 +289,9 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             // Client-side emotion tagging is now handled at build time via onSubtitleContentAdded
             // Server motion tagging is handled by OnServerMotionTag callback (called at exact timing from timeline)
+
+            // Notify one-shot motion system (interrupts if playing)
+            OnSentenceStarted_OneShotMotion();
         }
 
         /// <summary>
@@ -305,6 +315,9 @@ namespace FluentT.Avatar.SampleFloatingHead
                     ResetEmotionState();
                 }
             }
+
+            // Notify one-shot motion system
+            OnSentenceEnded_OneShotMotion(data != null && data.isLastSentence);
         }
 
         public void OnTranscriptionReceived(FluentT.Talkmotion.TranscriptionData data)

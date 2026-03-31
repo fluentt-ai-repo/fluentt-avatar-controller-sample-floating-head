@@ -5,6 +5,10 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 {
     public partial class FluentTAvatarControllerFloatingHeadEditor
     {
+        private static readonly GUIContent gc_enableServerMotion = new("Enable Server Motion Tagging", "Also receive and play emotion tags from server at exact timing");
+        private static readonly GUIContent gc_autoReset = new("Auto Reset on Speech End", "Automatically blend gesture back to Idle when the last sentence finishes");
+        private static readonly GUIContent gc_gestureMappings = new("Gesture Mappings", "Map emotion tags to gesture AnimationClip animations");
+
         private void DrawGestureAnimationSettings()
         {
             EditorGUILayout.LabelField("Gesture Animation", EditorStyles.boldLabel);
@@ -22,16 +26,12 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorGUILayout.Space();
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("enableServerMotionTagging"),
-                new GUIContent("Enable Server Motion Tagging", "Also receive and play emotion tags from server at exact timing"));
-
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("enableAutoEmotionReset"),
-                new GUIContent("Auto Reset on Speech End", "Automatically blend gesture back to Idle when the last sentence finishes"));
+            EditorGUILayout.PropertyField(enableServerMotionTaggingProp, gc_enableServerMotion);
+            EditorGUILayout.PropertyField(enableAutoEmotionResetProp, gc_autoReset);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Tag → Gesture Mappings", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("gestureMappings"),
-                new GUIContent("Gesture Mappings", "Map emotion tags to gesture AnimationClip animations"));
+            EditorGUILayout.PropertyField(gestureMappingsProp, gc_gestureMappings);
         }
     }
 }
