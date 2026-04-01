@@ -274,7 +274,13 @@ namespace FluentT.Avatar.SampleFloatingHead
                 UpdateHeadVirtualTarget(deltaTime);
             }
 
-            // Update eye virtual targets and initialize BlendShape values when enabled
+            // BlendWeight strategy: always run transition detection for smooth fade-in/fade-out
+            if (eyeControlStrategy == EEyeControlStrategy.BlendWeightFluentt)
+            {
+                InitializeBlendShapeValues();
+            }
+
+            // Update eye virtual targets when enabled
             if (enableEyeControl)
             {
                 if (eyeControlStrategy == EEyeControlStrategy.Transform)
@@ -289,7 +295,6 @@ namespace FluentT.Avatar.SampleFloatingHead
                 {
                     // BlendWeight strategy also needs virtual target for direction calculation
                     UpdateEyeVirtualTarget(deltaTime);
-                    InitializeBlendShapeValues();
                 }
             }
 

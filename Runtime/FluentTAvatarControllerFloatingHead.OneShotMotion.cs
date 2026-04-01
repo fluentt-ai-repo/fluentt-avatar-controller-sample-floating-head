@@ -22,6 +22,10 @@ namespace FluentT.Avatar.SampleFloatingHead
         private string currentGroupId;
         private int lastGroupEntryIndex = -1;
 
+        // Eye control override state
+        private bool isEyeControlSuspendedByOneShot;
+        private bool eyeControlValueBeforeOneShot;
+
         #region Public API
 
         /// <summary>
@@ -70,6 +74,12 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             isOneShotMotionPlaying = true;
             currentOneShotMotionId = motionId;
+
+            // Suspend eye control if this motion overrides it
+            if (entry.overrideEyeControl)
+            {
+                SuspendEyeControl();
+            }
 
             Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing one-shot motion: {motionId} ({entry.clip.name})");
 
@@ -182,6 +192,25 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         #region Internal
 
+        private void SuspendEyeControl()
+        {
+            if (!isEyeControlSuspendedByOneShot)
+            {
+                eyeControlValueBeforeOneShot = enableEyeControl;
+                isEyeControlSuspendedByOneShot = true;
+            }
+            enableEyeControl = false;
+        }
+
+        private void RestoreEyeControlIfSuspended()
+        {
+            if (isEyeControlSuspendedByOneShot)
+            {
+                enableEyeControl = eyeControlValueBeforeOneShot;
+                isEyeControlSuspendedByOneShot = false;
+            }
+        }
+
         private void StopOneShotMotionInternal()
         {
             if (oneShotCoroutine != null)
@@ -189,6 +218,8 @@ namespace FluentT.Avatar.SampleFloatingHead
                 StopCoroutine(oneShotCoroutine);
                 oneShotCoroutine = null;
             }
+
+            RestoreEyeControlIfSuspended();
 
             string endedMotionId = currentOneShotMotionId;
             isOneShotMotionPlaying = false;
@@ -225,6 +256,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 else
                 {
                     // Group became invalid, stop
+                    RestoreEyeControlIfSuspended();
                     isOneShotGroupLooping = false;
                     currentGroupId = null;
                     ResetEmotionState();
@@ -233,6 +265,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
 
             // Single play: return to idle
+            RestoreEyeControlIfSuspended();
             ResetEmotionState();
             isOneShotMotionPlaying = false;
             currentOneShotMotionId = null;
@@ -254,6 +287,16 @@ namespace FluentT.Avatar.SampleFloatingHead
             animator.ResetTrigger("emotionReset");
             animator.SetTrigger(triggerName);
             currentEmotionSlot = 1 - currentEmotionSlot;
+
+            // Handle eye control override per group entry
+            if (entry.overrideEyeControl)
+            {
+                SuspendEyeControl();
+            }
+            else
+            {
+                RestoreEyeControlIfSuspended();
+            }
 
             string clipName = entry.clip != null ? entry.clip.name : "null";
             isOneShotMotionPlaying = true;

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -18,6 +19,18 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private readonly Dictionary<string, int> validationSeenIds = new();
         private readonly List<string> tempIdList = new();
 
+        // Track clip references to detect changes for auto eye override detection
+        private readonly Dictionary<string, int> previousClipInstanceIds = new();
+
+        // Eye BlendShape curve prefixes used for auto-detection
+        private static readonly string[] EYE_BLEND_SHAPE_PREFIXES = new[]
+        {
+            "blendShape.eyeLookUp",
+            "blendShape.eyeLookDown",
+            "blendShape.eyeLookIn",
+            "blendShape.eyeLookOut"
+        };
+
         private void DrawOneShotMotionSettings()
         {
             EditorGUILayout.LabelField("One-Shot Motion", EditorStyles.boldLabel);
@@ -32,6 +45,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorGUILayout.LabelField("Registered Motions", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(oneShotMotionsProp, gc_oneShotMotions);
+            AutoDetectEyeOverrideForMotions(oneShotMotionsProp);
 
             // Validation: check for duplicate motionIds and empty entries
             ValidateOneShotMotions(oneShotMotionsProp);
@@ -44,6 +58,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 "Use PlayOneShotMotionGroup(groupId) to trigger.",
                 MessageType.Info);
             EditorGUILayout.PropertyField(oneShotMotionGroupsProp, gc_oneShotGroups);
+            AutoDetectEyeOverrideForGroups(oneShotMotionGroupsProp);
             ValidateOneShotMotionGroups(oneShotMotionGroupsProp);
 
             // === Debug ===
@@ -176,6 +191,72 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     tempIdList.Add(groupId);
             }
             return tempIdList.ToArray();
+        }
+
+        /// <summary>
+        /// Auto-detect eye BlendShape curves in OneShotMotionEntry clips.
+        /// When a clip is newly assigned (changed), automatically toggle overrideEyeControl.
+        /// </summary>
+        private void AutoDetectEyeOverrideForMotions(SerializedProperty motionsProp)
+        {
+            if (motionsProp == null) return;
+
+            for (int i = 0; i < motionsProp.arraySize; i++)
+            {
+                var element = motionsProp.GetArrayElementAtIndex(i);
+                var clipProp = element.FindPropertyRelative("clip");
+                var overrideProp = element.FindPropertyRelative("overrideEyeControl");
+                AutoDetectEyeOverrideForClip(clipProp, overrideProp);
+            }
+        }
+
+        /// <summary>
+        /// Auto-detect eye BlendShape curves in OneShotMotionGroupEntry clips.
+        /// </summary>
+        private void AutoDetectEyeOverrideForGroups(SerializedProperty groupsProp)
+        {
+            if (groupsProp == null) return;
+
+            for (int i = 0; i < groupsProp.arraySize; i++)
+            {
+                var group = groupsProp.GetArrayElementAtIndex(i);
+                var entries = group.FindPropertyRelative("entries");
+                if (entries == null) continue;
+
+                for (int j = 0; j < entries.arraySize; j++)
+                {
+                    var entry = entries.GetArrayElementAtIndex(j);
+                    var clipProp = entry.FindPropertyRelative("clip");
+                    var overrideProp = entry.FindPropertyRelative("overrideEyeControl");
+                    AutoDetectEyeOverrideForClip(clipProp, overrideProp);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Check if a clip reference changed and auto-set overrideEyeControl based on eye curve detection.
+        /// </summary>
+        private void AutoDetectEyeOverrideForClip(SerializedProperty clipProp, SerializedProperty overrideProp)
+        {
+            if (clipProp == null || overrideProp == null) return;
+
+            var clip = clipProp.objectReferenceValue as AnimationClip;
+            int currentId = clip != null ? clip.GetInstanceID() : 0;
+            string key = clipProp.propertyPath;
+
+            if (previousClipInstanceIds.TryGetValue(key, out int prevId))
+            {
+                if (prevId != currentId && clip != null)
+                {
+                    // Clip changed — auto-detect eye curves
+                    var bindings = AnimationUtility.GetCurveBindings(clip);
+                    bool hasEyeCurves = bindings.Any(b =>
+                        EYE_BLEND_SHAPE_PREFIXES.Any(prefix => b.propertyName.StartsWith(prefix)));
+                    overrideProp.boolValue = hasEyeCurves;
+                }
+            }
+
+            previousClipInstanceIds[key] = currentId;
         }
 
         private void ValidateOneShotMotionGroups(SerializedProperty groupsProp)
