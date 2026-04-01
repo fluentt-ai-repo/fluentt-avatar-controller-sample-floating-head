@@ -211,6 +211,24 @@ namespace FluentT.Avatar.SampleFloatingHead
             PlayBlinkAnimation();
         }
 
+        /// <summary>
+        /// Set blink blend mode at runtime. Immediately applies to the blink layer.
+        /// </summary>
+        public void SetBlinkBlendMode(TMAnimationLayer.BlendMode mode)
+        {
+            blinkBlendMode = mode;
+
+            if (avatar != null && avatar.TMAnimationComponent != null)
+            {
+                var blinkLayer = avatar.TMAnimationComponent.GetLayer(
+                    BLINK_LAYER_INDEX, TMAnimationLayer.UpdatePhase.LateUpdate);
+                if (blinkLayer != null)
+                {
+                    blinkLayer.blendMode = mode;
+                }
+            }
+        }
+
         #endregion
     }
 }

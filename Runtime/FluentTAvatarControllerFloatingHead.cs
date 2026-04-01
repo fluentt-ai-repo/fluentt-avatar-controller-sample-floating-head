@@ -88,7 +88,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         [Tooltip("Eye blink animation clip (if null, uses default ARKit eyeBlink animation)")]
         [SerializeField] public TMAnimationClip blinkClip = null;
         [Tooltip("How blink layer values combine with face animation values")]
-        [SerializeField] public TMAnimationLayer.BlendMode blinkBlendMode = TMAnimationLayer.BlendMode.Override;
+        [SerializeField] public TMAnimationLayer.BlendMode blinkBlendMode = TMAnimationLayer.BlendMode.SoftMax2D;
         [SerializeField] [Range(1f, 10f)] public float blinkInterval = 3f;
         [SerializeField] [Range(0f, 5f)] public float blinkIntervalVariance = 1f;
 
