@@ -17,6 +17,13 @@ namespace FluentT.Avatar.SampleFloatingHead
         private int lastPlayedIdleIndex = -1;
         private bool idleSwapEnabled;
 
+        // Track which clip index is loaded in each slot (for eye control override)
+        private int[] idleSlotClipIndex = new int[2] { -1, -1 };
+
+        // Idle eye control override state (separate from OneShotMotion)
+        private bool isEyeControlSuspendedByIdle;
+        private bool eyeControlValueBeforeIdle;
+
         #region Idle Animation Initialization
 
         /// <summary>
@@ -81,15 +88,20 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Initial override: slot 0
             int firstIndex = SelectNextIdleClip(-1);
             overrideController[IDLE_OVERRIDE_0] = idleAnimations[firstIndex].clip;
+            idleSlotClipIndex[0] = firstIndex;
             lastPlayedIdleIndex = firstIndex;
             currentIdleSlot = 0;
             Debug.Log($"[FluentTAvatarControllerFloatingHead] Idle slot 0 initialized with {idleAnimations[firstIndex].clip.name}");
+
+            // Apply eye control override for initial clip
+            ApplyIdleEyeControl(firstIndex);
 
             if (idleAnimations.Count > 1)
             {
                 // Multi-clip: load a different clip into slot 1, enable swap
                 int secondIndex = SelectNextIdleClip(firstIndex);
                 overrideController[IDLE_OVERRIDE_1] = idleAnimations[secondIndex].clip;
+                idleSlotClipIndex[1] = secondIndex;
                 Debug.Log($"[FluentTAvatarControllerFloatingHead] Idle slot 1 initialized with {idleAnimations[secondIndex].clip.name}");
                 idleSwapEnabled = true;
             }
@@ -97,6 +109,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             {
                 // Single clip: override slot 1 with the same clip so ExitTime transition plays correctly
                 overrideController[IDLE_OVERRIDE_1] = idleAnimations[firstIndex].clip;
+                idleSlotClipIndex[1] = firstIndex;
                 Debug.Log($"[FluentTAvatarControllerFloatingHead] Single idle clip mode: both slots set to {idleAnimations[firstIndex].clip.name}");
             }
         }
@@ -117,12 +130,57 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
 
             currentIdleSlot = activeSlot;
+
+            // Apply eye control for the now-active clip
+            int activeClipIndex = idleSlotClipIndex[activeSlot];
+            if (activeClipIndex >= 0 && activeClipIndex < idleAnimations.Count)
+            {
+                ApplyIdleEyeControl(activeClipIndex);
+            }
+
+            // Preload next clip into the inactive slot
             int otherSlot = 1 - activeSlot;
             string otherSlotKey = otherSlot == 0 ? IDLE_OVERRIDE_0 : IDLE_OVERRIDE_1;
 
             int nextIndex = SelectNextIdleClip(lastPlayedIdleIndex);
             overrideController[otherSlotKey] = idleAnimations[nextIndex].clip;
+            idleSlotClipIndex[otherSlot] = nextIndex;
             lastPlayedIdleIndex = nextIndex;
+        }
+
+        #endregion
+
+        #region Idle Eye Control
+
+        private void ApplyIdleEyeControl(int idleClipIndex)
+        {
+            if (idleAnimations[idleClipIndex].overrideEyeControl)
+            {
+                SuspendEyeControlByIdle();
+            }
+            else
+            {
+                RestoreEyeControlFromIdle();
+            }
+        }
+
+        private void SuspendEyeControlByIdle()
+        {
+            if (!isEyeControlSuspendedByIdle)
+            {
+                eyeControlValueBeforeIdle = enableEyeControl;
+                isEyeControlSuspendedByIdle = true;
+            }
+            enableEyeControl = false;
+        }
+
+        private void RestoreEyeControlFromIdle()
+        {
+            if (isEyeControlSuspendedByIdle)
+            {
+                enableEyeControl = eyeControlValueBeforeIdle;
+                isEyeControlSuspendedByIdle = false;
+            }
         }
 
         #endregion

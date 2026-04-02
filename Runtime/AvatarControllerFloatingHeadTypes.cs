@@ -13,6 +13,8 @@ namespace FluentT.Avatar.SampleFloatingHead
         [Range(0f, 10f)] public float weight = 1f;
         [Tooltip("Prevent this clip from playing twice in a row")]
         public bool preventRepeat;
+        [Tooltip("When enabled, Look Target Eye Control is automatically disabled during this clip's playback so that the clip's eye BlendShape curves take priority.")]
+        public bool overrideEyeControl;
     }
 
     /// <summary>
