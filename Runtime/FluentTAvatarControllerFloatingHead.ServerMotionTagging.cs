@@ -48,6 +48,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         public void ResetEmotionState()
         {
             if (animator == null) return;
+            RestoreEyeControlIfSuspended();
             animator.SetTrigger("emotionReset");
         }
 
@@ -78,13 +79,13 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
 
             // Play the animation immediately (triggered at exact timing by timeline marker)
-            PlayMotionClip(clip, gestureMapping.blendWeight, gestureMapping.emotionTag);
+            PlayMotionClip(clip, gestureMapping.blendWeight, gestureMapping.emotionTag, gestureMapping.overrideEyeControl);
         }
 
         /// <summary>
         /// Play motion animation using animator triggers and override controller
         /// </summary>
-        private void PlayMotionClip(AnimationClip clip, float blendWeight, string tag)
+        private void PlayMotionClip(AnimationClip clip, float blendWeight, string tag, bool overrideEyeControl = false)
         {
             if (animator == null || overrideController == null || clip == null)
                 return;
@@ -104,6 +105,16 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             // Trigger the animation state
             animator.SetTrigger(triggerName);
+
+            // Handle eye control override per gesture
+            if (overrideEyeControl)
+            {
+                SuspendEyeControl();
+            }
+            else
+            {
+                RestoreEyeControlIfSuspended();
+            }
 
             Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing motion: {tag} ({clip.name}) on slot {currentEmotionSlot}");
 

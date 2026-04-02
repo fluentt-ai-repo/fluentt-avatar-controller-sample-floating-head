@@ -68,5 +68,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         public List<AnimationClip> animationClips = new List<AnimationClip>();
         [Range(0f, 1f)]
         public float blendWeight = 1f;
+        [Tooltip("When enabled, Look Target Eye Control is automatically disabled during this gesture so that the clip's eye BlendShape curves take priority.")]
+        public bool overrideEyeControl;
     }
 }

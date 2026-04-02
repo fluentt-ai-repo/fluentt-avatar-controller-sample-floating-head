@@ -1,3 +1,4 @@
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -32,6 +33,59 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Tag → Gesture Mappings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(gestureMappingsProp, gc_gestureMappings);
+            AutoDetectEyeOverrideForGestures(gestureMappingsProp);
+        }
+
+        /// <summary>
+        /// Auto-detect eye BlendShape curves in GestureMapping clips.
+        /// If any clip in the mapping has eye curves, auto-set overrideEyeControl.
+        /// </summary>
+        private void AutoDetectEyeOverrideForGestures(SerializedProperty mappingsProp)
+        {
+            if (mappingsProp == null) return;
+
+            for (int i = 0; i < mappingsProp.arraySize; i++)
+            {
+                var mapping = mappingsProp.GetArrayElementAtIndex(i);
+                var clipsProp = mapping.FindPropertyRelative("animationClips");
+                var overrideProp = mapping.FindPropertyRelative("overrideEyeControl");
+                if (clipsProp == null || overrideProp == null) continue;
+
+                for (int j = 0; j < clipsProp.arraySize; j++)
+                {
+                    var clipProp = clipsProp.GetArrayElementAtIndex(j);
+                    AutoDetectEyeOverrideForGestureClip(clipProp, overrideProp);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Check if a gesture clip reference changed and auto-set overrideEyeControl.
+        /// Uses the shared previousClipInstanceIds dictionary from OneShotMotion editor.
+        /// </summary>
+        private void AutoDetectEyeOverrideForGestureClip(SerializedProperty clipProp, SerializedProperty overrideProp)
+        {
+            if (clipProp == null || overrideProp == null) return;
+
+            var clip = clipProp.objectReferenceValue as AnimationClip;
+            int currentId = clip != null ? clip.GetInstanceID() : 0;
+            string key = clipProp.propertyPath;
+
+            if (previousClipInstanceIds.TryGetValue(key, out int prevId))
+            {
+                if (prevId != currentId && clip != null)
+                {
+                    var bindings = AnimationUtility.GetCurveBindings(clip);
+                    bool hasEyeCurves = bindings.Any(b =>
+                        EYE_BLEND_SHAPE_PREFIXES.Any(prefix => b.propertyName.StartsWith(prefix)));
+                    if (hasEyeCurves)
+                    {
+                        overrideProp.boolValue = true;
+                    }
+                }
+            }
+
+            previousClipInstanceIds[key] = currentId;
         }
     }
 }
