@@ -8,20 +8,20 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
     {
         private static readonly GUIContent gc_enableServerMotion = new("Enable Server Motion Tagging", "Also receive and play emotion tags from server at exact timing");
         private static readonly GUIContent gc_autoReset = new("Auto Reset on Speech End", "Automatically blend gesture back to Idle when the last sentence finishes");
-        private static readonly GUIContent gc_gestureMappings = new("Gesture Mappings", "Map emotion tags to gesture AnimationClip animations");
+        private static readonly GUIContent gc_gestureMappings = new("Gesture Mappings", "Map emotion tags to gesture animations with per-clip weight and override settings");
 
         private void DrawGestureAnimationSettings()
         {
             EditorGUILayout.LabelField("Gesture Animation", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
                 "Gesture Animation\n\n" +
-                "Maps emotion tags to gesture AnimationClip animations.\n" +
+                "Maps emotion tags to gesture animations.\n" +
                 "Used by both Text Emotion Detection and Server Motion Tagging.\n\n" +
-                "• Text Detection: Regex-detected emotion tags trigger gestures at estimated timing\n" +
-                "• Server: Server-provided emotion tags trigger gestures at exact timing\n\n" +
+                "• Each tag can have multiple clips with weights for random variant selection\n" +
+                "• Per-clip overrideEyeControl and overrideEyeBlink settings\n\n" +
                 "Setup:\n" +
                 "1. Add emotion tag entries (e.g. tag: \"강조\")\n" +
-                "2. Assign one or more AnimationClips per tag (random variant selection)\n" +
+                "2. Assign one or more clips per tag with weight\n" +
                 "3. Enable Server Motion Tagging if server provides emotion tags",
                 MessageType.Info);
 
@@ -33,59 +33,52 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Tag → Gesture Mappings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(gestureMappingsProp, gc_gestureMappings);
-            AutoDetectEyeOverrideForGestures(gestureMappingsProp);
+            AutoDetectOverridesForGestures(gestureMappingsProp);
+
+            // Drag & drop for each gesture mapping's clips list
+            DrawDragDropForGestureMappings(gestureMappingsProp);
         }
 
         /// <summary>
-        /// Auto-detect eye BlendShape curves in GestureMapping clips.
-        /// If any clip in the mapping has eye curves, auto-set overrideEyeControl.
+        /// Auto-detect eye BlendShape and blink curves in GestureMapping clips.
+        /// Each entry in clips has its own overrideEyeControl and overrideEyeBlink.
         /// </summary>
-        private void AutoDetectEyeOverrideForGestures(SerializedProperty mappingsProp)
+        private void AutoDetectOverridesForGestures(SerializedProperty mappingsProp)
         {
             if (mappingsProp == null) return;
 
             for (int i = 0; i < mappingsProp.arraySize; i++)
             {
                 var mapping = mappingsProp.GetArrayElementAtIndex(i);
-                var clipsProp = mapping.FindPropertyRelative("animationClips");
-                var overrideProp = mapping.FindPropertyRelative("overrideEyeControl");
-                if (clipsProp == null || overrideProp == null) continue;
+                var clipsProp = mapping.FindPropertyRelative("clips");
+                if (clipsProp == null) continue;
 
                 for (int j = 0; j < clipsProp.arraySize; j++)
                 {
-                    var clipProp = clipsProp.GetArrayElementAtIndex(j);
-                    AutoDetectEyeOverrideForGestureClip(clipProp, overrideProp);
+                    var entryProp = clipsProp.GetArrayElementAtIndex(j);
+                    AutoDetectOverridesForEntry(entryProp);
                 }
             }
         }
 
         /// <summary>
-        /// Check if a gesture clip reference changed and auto-set overrideEyeControl.
-        /// Uses the shared previousClipInstanceIds dictionary from OneShotMotion editor.
+        /// Draw drag-drop zones for each expanded gesture mapping's clips list.
         /// </summary>
-        private void AutoDetectEyeOverrideForGestureClip(SerializedProperty clipProp, SerializedProperty overrideProp)
+        private void DrawDragDropForGestureMappings(SerializedProperty mappingsProp)
         {
-            if (clipProp == null || overrideProp == null) return;
+            if (mappingsProp == null || !mappingsProp.isExpanded) return;
 
-            var clip = clipProp.objectReferenceValue as AnimationClip;
-            int currentId = clip != null ? clip.GetInstanceID() : 0;
-            string key = clipProp.propertyPath;
-
-            if (previousClipInstanceIds.TryGetValue(key, out int prevId))
+            for (int i = 0; i < mappingsProp.arraySize; i++)
             {
-                if (prevId != currentId && clip != null)
-                {
-                    var bindings = AnimationUtility.GetCurveBindings(clip);
-                    bool hasEyeCurves = bindings.Any(b =>
-                        EYE_BLEND_SHAPE_PREFIXES.Any(prefix => b.propertyName.StartsWith(prefix)));
-                    if (hasEyeCurves)
-                    {
-                        overrideProp.boolValue = true;
-                    }
-                }
-            }
+                var mapping = mappingsProp.GetArrayElementAtIndex(i);
+                if (!mapping.isExpanded) continue;
 
-            previousClipInstanceIds[key] = currentId;
+                var clipsProp = mapping.FindPropertyRelative("clips");
+                if (clipsProp == null) continue;
+
+                var tag = mapping.FindPropertyRelative("emotionTag")?.stringValue ?? $"[{i}]";
+                DrawAnimationClipDropArea(clipsProp, $"Drop AnimationClips here ({tag})");
+            }
         }
     }
 }

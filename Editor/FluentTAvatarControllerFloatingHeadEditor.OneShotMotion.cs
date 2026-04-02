@@ -19,7 +19,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private readonly Dictionary<string, int> validationSeenIds = new();
         private readonly List<string> tempIdList = new();
 
-        // Track clip references to detect changes for auto eye override detection
+        // Track clip references to detect changes for auto override detection
         private readonly Dictionary<string, int> previousClipInstanceIds = new();
 
         // Eye BlendShape curve prefixes used for auto-detection
@@ -29,6 +29,13 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             "blendShape.eyeLookDown",
             "blendShape.eyeLookIn",
             "blendShape.eyeLookOut"
+        };
+
+        // Eye Blink curve prefixes used for auto-detection
+        private static readonly string[] EYE_BLINK_PREFIXES = new[]
+        {
+            "blendShape.eyeBlinkLeft",
+            "blendShape.eyeBlinkRight"
         };
 
         private void DrawOneShotMotionSettings()
@@ -45,7 +52,8 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorGUILayout.LabelField("Registered Motions", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(oneShotMotionsProp, gc_oneShotMotions);
-            AutoDetectEyeOverrideForMotions(oneShotMotionsProp);
+            DrawOneShotMotionDropArea(oneShotMotionsProp);
+            AutoDetectOverridesForArray(oneShotMotionsProp);
 
             // Validation: check for duplicate motionIds and empty entries
             ValidateOneShotMotions(oneShotMotionsProp);
@@ -58,7 +66,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 "Use PlayOneShotMotionGroup(groupId) to trigger.",
                 MessageType.Info);
             EditorGUILayout.PropertyField(oneShotMotionGroupsProp, gc_oneShotGroups);
-            AutoDetectEyeOverrideForGroups(oneShotMotionGroupsProp);
+            AutoDetectOverridesForGroupArray(oneShotMotionGroupsProp);
             ValidateOneShotMotionGroups(oneShotMotionGroupsProp);
 
             // === Debug ===
@@ -120,6 +128,128 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             EditorGUILayout.PropertyField(onOneShotMotionEndedProp, gc_onMotionEnded);
         }
 
+        /// <summary>
+        /// Drag-and-drop area for OneShotMotionEntry. Sets motionId from clip name.
+        /// </summary>
+        private void DrawOneShotMotionDropArea(SerializedProperty arrayProp)
+        {
+            var dropArea = GUILayoutUtility.GetRect(0, 30, GUILayout.ExpandWidth(true));
+            GUI.Box(dropArea, "Drop AnimationClips here (motionId = clip name)", EditorStyles.helpBox);
+
+            var evt = Event.current;
+            if (!dropArea.Contains(evt.mousePosition)) return;
+
+            if (evt.type == EventType.DragUpdated)
+            {
+                bool hasClip = false;
+                foreach (var obj in DragAndDrop.objectReferences)
+                    if (obj is AnimationClip) { hasClip = true; break; }
+                DragAndDrop.visualMode = hasClip ? DragAndDropVisualMode.Copy : DragAndDropVisualMode.Rejected;
+                evt.Use();
+            }
+            else if (evt.type == EventType.DragPerform)
+            {
+                DragAndDrop.AcceptDrag();
+                foreach (var obj in DragAndDrop.objectReferences)
+                {
+                    if (obj is AnimationClip clip)
+                    {
+                        int idx = arrayProp.arraySize;
+                        arrayProp.InsertArrayElementAtIndex(idx);
+                        var newEntry = arrayProp.GetArrayElementAtIndex(idx);
+                        newEntry.FindPropertyRelative("clip").objectReferenceValue = clip;
+                        newEntry.FindPropertyRelative("weight").floatValue = 1f;
+                        newEntry.FindPropertyRelative("motionId").stringValue = clip.name;
+                        newEntry.FindPropertyRelative("overrideEyeControl").boolValue = false;
+                        newEntry.FindPropertyRelative("overrideEyeBlink").boolValue = false;
+                        AutoDetectOverridesForEntry(newEntry);
+                    }
+                }
+                serializedObject.ApplyModifiedProperties();
+                evt.Use();
+            }
+        }
+
+        #region Auto-detect Overrides (shared by all entry types)
+
+        /// <summary>
+        /// Auto-detect overrides for a flat array of AnimationEntryBase (or derived) entries.
+        /// Works for OneShotMotionEntry, IdleAnimationEntry, etc.
+        /// </summary>
+        private void AutoDetectOverridesForArray(SerializedProperty arrayProp)
+        {
+            if (arrayProp == null) return;
+            for (int i = 0; i < arrayProp.arraySize; i++)
+            {
+                AutoDetectOverridesForEntry(arrayProp.GetArrayElementAtIndex(i));
+            }
+        }
+
+        /// <summary>
+        /// Auto-detect overrides for group arrays (entries nested inside groups).
+        /// </summary>
+        private void AutoDetectOverridesForGroupArray(SerializedProperty groupsProp)
+        {
+            if (groupsProp == null) return;
+            for (int i = 0; i < groupsProp.arraySize; i++)
+            {
+                var entries = groupsProp.GetArrayElementAtIndex(i).FindPropertyRelative("entries");
+                if (entries == null) continue;
+                for (int j = 0; j < entries.arraySize; j++)
+                {
+                    AutoDetectOverridesForEntry(entries.GetArrayElementAtIndex(j));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Auto-detect overrideEyeControl and overrideEyeBlink for a single AnimationEntryBase entry.
+        /// Triggered when clip reference changes.
+        /// </summary>
+        private void AutoDetectOverridesForEntry(SerializedProperty entryProp)
+        {
+            if (entryProp == null) return;
+
+            var clipProp = entryProp.FindPropertyRelative("clip");
+            if (clipProp == null) return;
+
+            var clip = clipProp.objectReferenceValue as AnimationClip;
+            int currentId = clip != null ? clip.GetInstanceID() : 0;
+            string key = clipProp.propertyPath;
+
+            if (previousClipInstanceIds.TryGetValue(key, out int prevId))
+            {
+                if (prevId != currentId && clip != null)
+                {
+                    var bindings = AnimationUtility.GetCurveBindings(clip);
+
+                    // Auto-detect eye control curves
+                    var overrideEyeProp = entryProp.FindPropertyRelative("overrideEyeControl");
+                    if (overrideEyeProp != null)
+                    {
+                        bool hasEyeCurves = bindings.Any(b =>
+                            EYE_BLEND_SHAPE_PREFIXES.Any(prefix => b.propertyName.StartsWith(prefix)));
+                        overrideEyeProp.boolValue = hasEyeCurves;
+                    }
+
+                    // Auto-detect eye blink curves
+                    var overrideBlinkProp = entryProp.FindPropertyRelative("overrideEyeBlink");
+                    if (overrideBlinkProp != null)
+                    {
+                        bool hasBlinkCurves = bindings.Any(b =>
+                            EYE_BLINK_PREFIXES.Any(prefix => b.propertyName.StartsWith(prefix)));
+                        overrideBlinkProp.boolValue = hasBlinkCurves;
+                    }
+                }
+            }
+
+            previousClipInstanceIds[key] = currentId;
+        }
+
+        #endregion
+
+        #region Validation
+
         private void ValidateOneShotMotions(SerializedProperty motionsProp)
         {
             if (motionsProp == null || motionsProp.arraySize == 0)
@@ -166,98 +296,6 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 EditorGUILayout.HelpBox("One or more entries have no AnimationClip assigned.", MessageType.Warning);
             }
         }
-        private string[] BuildMotionIdList(SerializedProperty motionsProp)
-        {
-            tempIdList.Clear();
-            for (int i = 0; i < motionsProp.arraySize; i++)
-            {
-                var element = motionsProp.GetArrayElementAtIndex(i);
-                var motionId = element.FindPropertyRelative("motionId").stringValue;
-                var clip = element.FindPropertyRelative("clip").objectReferenceValue;
-                if (!string.IsNullOrEmpty(motionId) && clip != null)
-                    tempIdList.Add(motionId);
-            }
-            return tempIdList.ToArray();
-        }
-
-        private string[] BuildGroupIdList(SerializedProperty groupsProp)
-        {
-            tempIdList.Clear();
-            for (int i = 0; i < groupsProp.arraySize; i++)
-            {
-                var element = groupsProp.GetArrayElementAtIndex(i);
-                var groupId = element.FindPropertyRelative("groupId").stringValue;
-                if (!string.IsNullOrEmpty(groupId))
-                    tempIdList.Add(groupId);
-            }
-            return tempIdList.ToArray();
-        }
-
-        /// <summary>
-        /// Auto-detect eye BlendShape curves in OneShotMotionEntry clips.
-        /// When a clip is newly assigned (changed), automatically toggle overrideEyeControl.
-        /// </summary>
-        private void AutoDetectEyeOverrideForMotions(SerializedProperty motionsProp)
-        {
-            if (motionsProp == null) return;
-
-            for (int i = 0; i < motionsProp.arraySize; i++)
-            {
-                var element = motionsProp.GetArrayElementAtIndex(i);
-                var clipProp = element.FindPropertyRelative("clip");
-                var overrideProp = element.FindPropertyRelative("overrideEyeControl");
-                AutoDetectEyeOverrideForClip(clipProp, overrideProp);
-            }
-        }
-
-        /// <summary>
-        /// Auto-detect eye BlendShape curves in OneShotMotionGroupEntry clips.
-        /// </summary>
-        private void AutoDetectEyeOverrideForGroups(SerializedProperty groupsProp)
-        {
-            if (groupsProp == null) return;
-
-            for (int i = 0; i < groupsProp.arraySize; i++)
-            {
-                var group = groupsProp.GetArrayElementAtIndex(i);
-                var entries = group.FindPropertyRelative("entries");
-                if (entries == null) continue;
-
-                for (int j = 0; j < entries.arraySize; j++)
-                {
-                    var entry = entries.GetArrayElementAtIndex(j);
-                    var clipProp = entry.FindPropertyRelative("clip");
-                    var overrideProp = entry.FindPropertyRelative("overrideEyeControl");
-                    AutoDetectEyeOverrideForClip(clipProp, overrideProp);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Check if a clip reference changed and auto-set overrideEyeControl based on eye curve detection.
-        /// </summary>
-        private void AutoDetectEyeOverrideForClip(SerializedProperty clipProp, SerializedProperty overrideProp)
-        {
-            if (clipProp == null || overrideProp == null) return;
-
-            var clip = clipProp.objectReferenceValue as AnimationClip;
-            int currentId = clip != null ? clip.GetInstanceID() : 0;
-            string key = clipProp.propertyPath;
-
-            if (previousClipInstanceIds.TryGetValue(key, out int prevId))
-            {
-                if (prevId != currentId && clip != null)
-                {
-                    // Clip changed — auto-detect eye curves
-                    var bindings = AnimationUtility.GetCurveBindings(clip);
-                    bool hasEyeCurves = bindings.Any(b =>
-                        EYE_BLEND_SHAPE_PREFIXES.Any(prefix => b.propertyName.StartsWith(prefix)));
-                    overrideProp.boolValue = hasEyeCurves;
-                }
-            }
-
-            previousClipInstanceIds[key] = currentId;
-        }
 
         private void ValidateOneShotMotionGroups(SerializedProperty groupsProp)
         {
@@ -301,5 +339,34 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 EditorGUILayout.HelpBox("One or more groups have an empty Group ID.", MessageType.Warning);
             }
         }
+
+        private string[] BuildMotionIdList(SerializedProperty motionsProp)
+        {
+            tempIdList.Clear();
+            for (int i = 0; i < motionsProp.arraySize; i++)
+            {
+                var element = motionsProp.GetArrayElementAtIndex(i);
+                var motionId = element.FindPropertyRelative("motionId").stringValue;
+                var clip = element.FindPropertyRelative("clip").objectReferenceValue;
+                if (!string.IsNullOrEmpty(motionId) && clip != null)
+                    tempIdList.Add(motionId);
+            }
+            return tempIdList.ToArray();
+        }
+
+        private string[] BuildGroupIdList(SerializedProperty groupsProp)
+        {
+            tempIdList.Clear();
+            for (int i = 0; i < groupsProp.arraySize; i++)
+            {
+                var element = groupsProp.GetArrayElementAtIndex(i);
+                var groupId = element.FindPropertyRelative("groupId").stringValue;
+                if (!string.IsNullOrEmpty(groupId))
+                    tempIdList.Add(groupId);
+            }
+            return tempIdList.ToArray();
+        }
+
+        #endregion
     }
 }

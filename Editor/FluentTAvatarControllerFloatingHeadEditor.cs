@@ -36,8 +36,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private SerializedProperty avatarProp;
         private SerializedProperty animatorControllerProp;
         private SerializedProperty idleAnimationsProp;
-        private SerializedProperty talkMotionOverrideLayerIndexProp;
-        private SerializedProperty talkMotionLayerTransitionTimeProp;
+        private SerializedProperty talkMotionIdleClipProp;
         // -- Emotion Tagging
         private SerializedProperty enableTextEmotionDetectionProp;
         private SerializedProperty maxEmotionTagsPerSentenceProp;
@@ -95,8 +94,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             avatarProp = serializedObject.FindProperty("avatar");
             animatorControllerProp = serializedObject.FindProperty("animatorController");
             idleAnimationsProp = serializedObject.FindProperty("idleAnimations");
-            talkMotionOverrideLayerIndexProp = serializedObject.FindProperty("talkMotionOverrideLayerIndex");
-            talkMotionLayerTransitionTimeProp = serializedObject.FindProperty("talkMotionLayerTransitionTime");
+            talkMotionIdleClipProp = serializedObject.FindProperty("talkMotionIdleClip");
             // Emotion Tagging
             enableTextEmotionDetectionProp = serializedObject.FindProperty("enableTextEmotionDetection");
             maxEmotionTagsPerSentenceProp = serializedObject.FindProperty("maxEmotionTagsPerSentence");
@@ -289,6 +287,57 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             if (container == null)
                 return null;
             return container.transform.Find($"{avatar.name}_VirtualTargets");
+        }
+
+        /// <summary>
+        /// Draw a drag-and-drop area for AnimationClips.
+        /// Dropped clips are wrapped in AnimationEntryBase entries and appended to the array.
+        /// </summary>
+        protected void DrawAnimationClipDropArea(SerializedProperty arrayProp, string label = "Drop AnimationClips here")
+        {
+            var dropArea = GUILayoutUtility.GetRect(0, 30, GUILayout.ExpandWidth(true));
+            GUI.Box(dropArea, label, EditorStyles.helpBox);
+
+            var evt = Event.current;
+            if (!dropArea.Contains(evt.mousePosition))
+                return;
+
+            if (evt.type == EventType.DragUpdated)
+            {
+                bool hasClip = false;
+                foreach (var obj in DragAndDrop.objectReferences)
+                {
+                    if (obj is AnimationClip)
+                    {
+                        hasClip = true;
+                        break;
+                    }
+                }
+                DragAndDrop.visualMode = hasClip ? DragAndDropVisualMode.Copy : DragAndDropVisualMode.Rejected;
+                evt.Use();
+            }
+            else if (evt.type == EventType.DragPerform)
+            {
+                DragAndDrop.AcceptDrag();
+                foreach (var obj in DragAndDrop.objectReferences)
+                {
+                    if (obj is AnimationClip clip)
+                    {
+                        int idx = arrayProp.arraySize;
+                        arrayProp.InsertArrayElementAtIndex(idx);
+                        var newEntry = arrayProp.GetArrayElementAtIndex(idx);
+                        newEntry.FindPropertyRelative("clip").objectReferenceValue = clip;
+                        newEntry.FindPropertyRelative("weight").floatValue = 1f;
+                        newEntry.FindPropertyRelative("overrideEyeControl").boolValue = false;
+                        newEntry.FindPropertyRelative("overrideEyeBlink").boolValue = false;
+
+                        // Auto-detect overrides for the newly added clip
+                        AutoDetectOverridesForEntry(newEntry);
+                    }
+                }
+                serializedObject.ApplyModifiedProperties();
+                evt.Use();
+            }
         }
 
         #endregion

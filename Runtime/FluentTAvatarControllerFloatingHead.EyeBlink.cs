@@ -212,5 +212,38 @@ namespace FluentT.Avatar.SampleFloatingHead
         }
 
         #endregion
+
+        #region Eye Blink Suspend/Restore
+
+        private bool isEyeBlinkSuspended;
+        private bool eyeBlinkValueBeforeSuspend;
+
+        /// <summary>
+        /// Suspend eye blink temporarily (e.g. during animation with its own blink curves).
+        /// Saves current state for later restoration.
+        /// </summary>
+        public void SuspendEyeBlink()
+        {
+            if (!isEyeBlinkSuspended)
+            {
+                eyeBlinkValueBeforeSuspend = enableEyeBlink;
+                isEyeBlinkSuspended = true;
+            }
+            SetEyeBlinkEnabled(false);
+        }
+
+        /// <summary>
+        /// Restore eye blink to the state before suspension.
+        /// </summary>
+        public void RestoreEyeBlinkIfSuspended()
+        {
+            if (isEyeBlinkSuspended)
+            {
+                isEyeBlinkSuspended = false;
+                SetEyeBlinkEnabled(eyeBlinkValueBeforeSuspend);
+            }
+        }
+
+        #endregion
     }
 }

@@ -17,12 +17,11 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private static readonly GUIContent gc_avatar = new("Avatar", "FluentTAvatar component reference");
         private static readonly GUIContent gc_animController = new("Animator Controller", "Runtime Animator Controller for body animations (required for Default Idle and Server Motion Tagging)");
         private static readonly GUIContent gc_idleAnims = new("Idle Animations", "List of idle animation clips with weights for random selection");
-        private static readonly GUIContent gc_talkMotionLayerIndex = new("Override Layer Index", "Animator layer index with zero-motion idle (Override blend mode). -1 = disabled.");
-        private static readonly GUIContent gc_talkMotionTransitionTime = new("Transition Time", "Time in seconds to smoothly blend the layer weight");
+        private static readonly GUIContent gc_talkMotionIdleClip = new("TalkMotion Idle Clip", "Idle clip played during TalkMotion speech (e.g. base expression with no body motion). Requires idleSwap trigger in Animator Controller.");
 
-        // SwapBuffer check cache
+        // SwapBuffer check cache (always invalidated on selection change via OnEnable → -1)
         private int cachedSwapBufferMissing = -1;
-        private Object cachedSwapBufferController;
+        private Object cachedSwapBufferController = null;
 
         private void DrawDefaultAnimationSettings()
         {
@@ -53,15 +52,16 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             EditorGUILayout.Space();
 
             EditorGUILayout.PropertyField(idleAnimationsProp, gc_idleAnims, true);
+            DrawAnimationClipDropArea(idleAnimationsProp, "Drop Idle AnimationClips here");
+            AutoDetectOverridesForArray(idleAnimationsProp);
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("TalkMotion Layer Override", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(talkMotionOverrideLayerIndexProp, gc_talkMotionLayerIndex);
-            EditorGUILayout.PropertyField(talkMotionLayerTransitionTimeProp, gc_talkMotionTransitionTime);
+            EditorGUILayout.LabelField("TalkMotion Idle", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(talkMotionIdleClipProp, gc_talkMotionIdleClip);
             EditorGUILayout.HelpBox(
-                "During TalkMotion speech, the specified Animator layer (Override mode, zero-motion idle) " +
-                "is blended to weight 1 to suppress Base layer body motion. " +
-                "Set layer index to -1 to disable.",
+                "When TalkMotion starts, the Animator transitions to this clip via idleSwap trigger. " +
+                "Use a base expression idle (no body motion) to avoid conflicts with server head animation. " +
+                "Requires 'Setup SwapBuffer Behaviours' above (adds idleSwap trigger + transitions).",
                 MessageType.None);
         }
 
@@ -78,12 +78,9 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             if (controllerRef == null)
                 return;
 
-            // Cache the check - only recount when controller reference changes
-            if (cachedSwapBufferController != controllerRef || cachedSwapBufferMissing < 0)
-            {
-                cachedSwapBufferMissing = CountMissingSwapBufferNotifiers(controllerRef);
-                cachedSwapBufferController = controllerRef;
-            }
+            // Recount on every draw (cheap check, avoids stale cache after setup)
+            cachedSwapBufferMissing = CountMissingSwapBufferNotifiers(controllerRef);
+            cachedSwapBufferController = controllerRef;
 
             int missingCount = cachedSwapBufferMissing;
             if (missingCount > 0)
@@ -105,6 +102,9 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         /// <summary>
         /// Count how many swap-buffer states are missing the SwapBufferNotifier behaviour.
         /// </summary>
+        private const string IDLE_SWAP_TRIGGER = "idleSwap";
+        private const float IDLE_SWAP_TRANSITION_DURATION = 0.3f;
+
         private int CountMissingSwapBufferNotifiers(AnimatorController controller)
         {
             if (controller.layers.Length == 0)
@@ -124,7 +124,21 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     missing++;
             }
 
+            // Also check if idleSwap trigger is missing
+            if (!HasIdleSwapTrigger(controller))
+                missing++;
+
             return missing;
+        }
+
+        private bool HasIdleSwapTrigger(AnimatorController controller)
+        {
+            foreach (var param in controller.parameters)
+            {
+                if (param.name == IDLE_SWAP_TRIGGER && param.type == AnimatorControllerParameterType.Trigger)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -162,12 +176,62 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 Debug.Log($"{LogPrefix} Attached SwapBufferNotifier to '{stateName}' (group={group}, slot={slot})");
             }
 
+            // Ensure idleSwap trigger parameter and transitions
+            EnsureIdleSwapTrigger(controller, baseLayer.stateMachine);
+
             if (attached > 0)
             {
                 EditorUtility.SetDirty(controller);
                 AssetDatabase.SaveAssets();
                 Debug.Log($"{LogPrefix} SwapBuffer setup complete. {attached} behaviour(s) attached.");
             }
+        }
+
+        /// <summary>
+        /// Ensure idleSwap trigger parameter and trigger-based transitions
+        /// between Idle 0 ↔ Idle 1 exist.
+        /// </summary>
+        private void EnsureIdleSwapTrigger(AnimatorController controller, AnimatorStateMachine stateMachine)
+        {
+            // Add trigger parameter if not present
+            if (!HasIdleSwapTrigger(controller))
+            {
+                controller.AddParameter(IDLE_SWAP_TRIGGER, AnimatorControllerParameterType.Trigger);
+                Debug.Log($"{LogPrefix} Added '{IDLE_SWAP_TRIGGER}' trigger parameter");
+            }
+
+            AnimatorState idle0 = FindStateByName(stateMachine, "Idle 0");
+            AnimatorState idle1 = FindStateByName(stateMachine, "Idle 1");
+            if (idle0 == null || idle1 == null)
+                return;
+
+            EnsureIdleSwapTransition(idle0, idle1);
+            EnsureIdleSwapTransition(idle1, idle0);
+
+            EditorUtility.SetDirty(controller);
+        }
+
+        private void EnsureIdleSwapTransition(AnimatorState source, AnimatorState destination)
+        {
+            foreach (var transition in source.transitions)
+            {
+                if (transition.destinationState == destination && !transition.hasExitTime)
+                {
+                    foreach (var condition in transition.conditions)
+                    {
+                        if (condition.parameter == IDLE_SWAP_TRIGGER)
+                            return; // Already exists
+                    }
+                }
+            }
+
+            var newTransition = source.AddTransition(destination);
+            newTransition.hasExitTime = false;
+            newTransition.duration = IDLE_SWAP_TRANSITION_DURATION;
+            newTransition.hasFixedDuration = true;
+            newTransition.AddCondition(AnimatorConditionMode.If, 0, IDLE_SWAP_TRIGGER);
+
+            Debug.Log($"{LogPrefix} Added idleSwap transition: {source.name} → {destination.name}");
         }
 
         /// <summary>

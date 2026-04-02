@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -95,7 +94,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             Debug.Log($"[FluentTAvatarControllerFloatingHead] Idle slot 0 initialized with {idleAnimations[firstIndex].clip.name}");
 
             // Apply eye control override for initial clip
-            ApplyIdleEyeControl(firstIndex);
+            ApplyIdleOverrides(firstIndex);
 
             if (idleAnimations.Count > 1)
             {
@@ -136,33 +135,50 @@ namespace FluentT.Avatar.SampleFloatingHead
             int activeClipIndex = idleSlotClipIndex[activeSlot];
             if (activeClipIndex >= 0 && activeClipIndex < idleAnimations.Count)
             {
-                ApplyIdleEyeControl(activeClipIndex);
+                ApplyIdleOverrides(activeClipIndex);
             }
 
             // Preload next clip into the inactive slot
             int otherSlot = 1 - activeSlot;
             string otherSlotKey = otherSlot == 0 ? IDLE_OVERRIDE_0 : IDLE_OVERRIDE_1;
 
-            int nextIndex = SelectNextIdleClip(lastPlayedIdleIndex);
-            overrideController[otherSlotKey] = idleAnimations[nextIndex].clip;
-            idleSlotClipIndex[otherSlot] = nextIndex;
-            lastPlayedIdleIndex = nextIndex;
+            if (isTalkMotionIdleActive)
+            {
+                // During TalkMotion: keep TalkMotion idle in inactive slot (skip if already set)
+                if (overrideController[otherSlotKey] != talkMotionIdleClip)
+                {
+                    overrideController[otherSlotKey] = talkMotionIdleClip;
+                }
+                idleSlotClipIndex[otherSlot] = -1;
+            }
+            else
+            {
+                int nextIndex = SelectNextIdleClip(lastPlayedIdleIndex);
+                overrideController[otherSlotKey] = idleAnimations[nextIndex].clip;
+                idleSlotClipIndex[otherSlot] = nextIndex;
+                lastPlayedIdleIndex = nextIndex;
+            }
         }
 
         #endregion
 
         #region Idle Eye Control
 
-        private void ApplyIdleEyeControl(int idleClipIndex)
+        private void ApplyIdleOverrides(int idleClipIndex)
         {
-            if (idleAnimations[idleClipIndex].overrideEyeControl)
-            {
+            var entry = idleAnimations[idleClipIndex];
+
+            // Eye control
+            if (entry.overrideEyeControl)
                 SuspendEyeControlByIdle();
-            }
             else
-            {
                 RestoreEyeControlFromIdle();
-            }
+
+            // Eye blink
+            if (entry.overrideEyeBlink)
+                SuspendEyeBlink();
+            else
+                RestoreEyeBlinkIfSuspended();
         }
 
         private void SuspendEyeControlByIdle()
@@ -250,44 +266,94 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         #endregion
 
-        #region TalkMotion Layer Override
+        #region TalkMotion Idle Swap
 
-        private Coroutine talkMotionLayerCoroutine;
+        private const string IDLE_SWAP_TRIGGER = "idleSwap";
+        private bool isTalkMotionIdleActive;
 
         /// <summary>
-        /// Smoothly transition the TalkMotion override layer weight.
-        /// Weight 1 = override layer active (zero-motion suppresses Base layer).
-        /// Weight 0 = override layer inactive (Base layer idle plays normally).
+        /// Called by OnSentenceStarted. Loads talkMotionIdleClip into the inactive slot
+        /// and fires idleSwap trigger for Animator transition.
         /// </summary>
-        private void SetTalkMotionOverrideLayerWeight(float targetWeight)
+        private Coroutine pendingIdleSwapCoroutine;
+
+        private void OnSentenceStarted_IdleAnimation()
         {
-            if (talkMotionOverrideLayerIndex < 1 || animator == null)
+            if (talkMotionIdleClip == null || overrideController == null || animator == null)
                 return;
 
-            if (talkMotionLayerCoroutine != null)
-            {
-                StopCoroutine(talkMotionLayerCoroutine);
-            }
+            if (isTalkMotionIdleActive)
+                return;
 
-            talkMotionLayerCoroutine = StartCoroutine(LerpLayerWeight(
-                talkMotionOverrideLayerIndex, targetWeight, talkMotionLayerTransitionTime));
+            isTalkMotionIdleActive = true;
+
+            // TalkMotion idle has no overrides — restore if suspended by normal idle
+            RestoreEyeControlFromIdle();
+            RestoreEyeBlinkIfSuspended();
+
+            ExecuteIdleSwap(talkMotionIdleClip, -1);
         }
 
-        private IEnumerator LerpLayerWeight(int layerIndex, float targetWeight, float duration)
+        /// <summary>
+        /// Called by OnSentenceEnded (isLastSentence). Loads a normal idle clip
+        /// into the inactive slot and fires idleSwap trigger.
+        /// </summary>
+        private void OnSentenceEnded_IdleAnimation()
         {
-            float startWeight = animator.GetLayerWeight(layerIndex);
-            float elapsed = 0f;
+            if (!isTalkMotionIdleActive || overrideController == null || animator == null)
+                return;
 
-            while (elapsed < duration)
+            isTalkMotionIdleActive = false;
+
+            int nextIndex = SelectNextIdleClip(lastPlayedIdleIndex);
+            lastPlayedIdleIndex = nextIndex;
+
+            ExecuteIdleSwap(idleAnimations[nextIndex].clip, nextIndex);
+        }
+
+        /// <summary>
+        /// Wait for any in-progress transition to finish, then load clip into
+        /// the inactive slot and fire idleSwap trigger.
+        /// </summary>
+        private void ExecuteIdleSwap(AnimationClip clip, int clipIndex)
+        {
+            if (pendingIdleSwapCoroutine != null)
             {
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                animator.SetLayerWeight(layerIndex, Mathf.Lerp(startWeight, targetWeight, t));
+                StopCoroutine(pendingIdleSwapCoroutine);
+            }
+            pendingIdleSwapCoroutine = StartCoroutine(ExecuteIdleSwapCoroutine(clip, clipIndex));
+        }
+
+        private System.Collections.IEnumerator ExecuteIdleSwapCoroutine(AnimationClip clip, int clipIndex)
+        {
+            // Wait until any ongoing transition completes — both slots are in use during transition
+            while (animator.IsInTransition(0))
+            {
                 yield return null;
             }
 
-            animator.SetLayerWeight(layerIndex, targetWeight);
-            talkMotionLayerCoroutine = null;
+            // Now exactly one slot is active, the other is safe to modify
+            var stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            int activeSlot;
+            if (stateInfo.IsName("Idle 0"))
+                activeSlot = 0;
+            else if (stateInfo.IsName("Idle 1"))
+                activeSlot = 1;
+            else
+                activeSlot = currentIdleSlot;
+
+            currentIdleSlot = activeSlot;
+
+            int inactiveSlot = 1 - activeSlot;
+            string inactiveSlotKey = inactiveSlot == 0 ? IDLE_OVERRIDE_0 : IDLE_OVERRIDE_1;
+
+            overrideController[inactiveSlotKey] = clip;
+            idleSlotClipIndex[inactiveSlot] = clipIndex;
+
+            animator.SetTrigger(IDLE_SWAP_TRIGGER);
+            pendingIdleSwapCoroutine = null;
+
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] IdleSwap: loaded '{clip.name}' into slot {inactiveSlot}, trigger fired");
         }
 
         #endregion

@@ -27,12 +27,8 @@ namespace FluentT.Avatar.SampleFloatingHead
         // Default Idle Animation
         [SerializeField] private List<IdleAnimationEntry> idleAnimations = new List<IdleAnimationEntry>();
 
-        [Header("TalkMotion Layer Override")]
-        [Tooltip("Animator layer index that contains zero-motion idle. During TalkMotion speech, this layer's weight is raised to 1 (Override) to suppress Base layer body motion. Set to -1 to disable.")]
-        [SerializeField] private int talkMotionOverrideLayerIndex = -1;
-
-        [Tooltip("Time in seconds to transition the layer weight (smooth blend)")]
-        [SerializeField] [Range(0.05f, 1f)] private float talkMotionLayerTransitionTime = 0.3f;
+        [Tooltip("Idle clip played during TalkMotion speech (e.g. base expression with no body motion). Leave empty to keep normal idle during speech.")]
+        [SerializeField] private AnimationClip talkMotionIdleClip;
 
         // Legacy field for auto-migration (hidden from Inspector)
         [HideInInspector] [SerializeField] private AnimationClip defaultIdleAnimationClip;
@@ -294,8 +290,8 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         public void OnSentenceStarted(FluentT.APIClient.V3.TalkMotionData data)
         {
-            // Suppress Base layer body motion during speech
-            SetTalkMotionOverrideLayerWeight(1f);
+            // Switch to TalkMotion idle (base expression)
+            OnSentenceStarted_IdleAnimation();
 
             // Notify one-shot motion system (interrupts if playing)
             OnSentenceStarted_OneShotMotion();
@@ -322,8 +318,8 @@ namespace FluentT.Avatar.SampleFloatingHead
                     ResetEmotionState();
                 }
 
-                // Restore Base layer body motion after last sentence
-                SetTalkMotionOverrideLayerWeight(0f);
+                // Restore normal idle after last sentence
+                OnSentenceEnded_IdleAnimation();
             }
 
             // Notify one-shot motion system

@@ -4,7 +4,9 @@
 
 ## 버전 목록
 
-- [v0.2.3](v0.2.3.md) - 2026-03-03 - 런타임 Rig 생성/삭제 기능 및 Inspector UI 추가 (현재)
+- [v0.3.0](v0.3.0.md) - 2026-04-02 - 자료구조 통일, TalkMotion Idle, overrideEyeBlink, Drag & Drop (현재)
+- [v0.2.4](v0.2.4.md) - 2026-03-31 - One-Shot Motion 기능 추가 및 Editor 성능 최적화
+- [v0.2.3](v0.2.3.md) - 2026-03-03 - 런타임 Rig 생성/삭제 기능 및 Inspector UI 추가
 - [v0.2.2](v0.2.2.md) - 2026-03-02 - 코드 품질 개선 (파일 분할, 네이밍, 매직 넘버 상수화)
 - [v0.2.1](v0.2.1.md) - 2026-02-26 - Talking Animation / Energy Matching 제거 (Idle 전용 경량화)
 - [v0.2.0](v0.2.0.md) - 2026-02-26 - Talking Animation 시스템 및 Energy Matching

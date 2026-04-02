@@ -49,7 +49,12 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             if (animator == null) return;
             RestoreEyeControlIfSuspended();
+            RestoreEyeBlinkIfSuspended();
             animator.SetTrigger("emotionReset");
+
+            // Restore base expression when gesture ends
+            if (avatar != null)
+                avatar.SuppressBaseExpression = false;
         }
 
         #region Server Motion Tagging Callbacks
@@ -67,27 +72,27 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             // Find matching gesture mapping from shared gestureMappings
             var gestureMapping = GetServerMotionMapping(taggedMotion.tag);
-            if (gestureMapping == null || gestureMapping.animationClips == null || gestureMapping.animationClips.Count == 0)
+            if (gestureMapping == null || gestureMapping.clips == null || gestureMapping.clips.Count == 0)
             {
                 Debug.LogWarning($"[FluentTAvatarControllerFloatingHead] No gesture mapping found for tag '{taggedMotion.tag}'");
                 return;
             }
 
-            // Pick a random clip from the variants
-            var clip = gestureMapping.animationClips[UnityEngine.Random.Range(0, gestureMapping.animationClips.Count)];
-            if (clip == null)
+            // Select entry using weighted random
+            var entry = SelectWeightedGestureEntry(gestureMapping);
+            if (entry == null || entry.clip == null)
                 return;
 
             // Play the animation immediately (triggered at exact timing by timeline marker)
-            PlayMotionClip(clip, gestureMapping.blendWeight, gestureMapping.emotionTag, gestureMapping.overrideEyeControl);
+            PlayMotionClip(entry, gestureMapping.emotionTag);
         }
 
         /// <summary>
         /// Play motion animation using animator triggers and override controller
         /// </summary>
-        private void PlayMotionClip(AnimationClip clip, float blendWeight, string tag, bool overrideEyeControl = false)
+        private void PlayMotionClip(AnimationEntryBase entry, string tag)
         {
-            if (animator == null || overrideController == null || clip == null)
+            if (animator == null || overrideController == null || entry.clip == null)
                 return;
 
             // Determine which slot to use (alternate between 0 and 1)
@@ -95,10 +100,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             string triggerName = currentEmotionSlot == 0 ? "emotion0" : "emotion1";
 
             // Override the placeholder clip with the actual animation
-            overrideController[overrideClipName] = clip;
-
-            // Layer weight is now managed by LayerWeightController StateMachineBehaviour
-            // attached to each state in the Motion Tagging layer.
+            overrideController[overrideClipName] = entry.clip;
 
             // Clear any pending emotionReset trigger to prevent immediate return to Idle
             animator.ResetTrigger("emotionReset");
@@ -106,20 +108,58 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Trigger the animation state
             animator.SetTrigger(triggerName);
 
-            // Handle eye control override per gesture
-            if (overrideEyeControl)
-            {
-                SuspendEyeControl();
-            }
-            else
-            {
-                RestoreEyeControlIfSuspended();
-            }
+            // Suppress base expression during gesture
+            if (avatar != null)
+                avatar.SuppressBaseExpression = true;
 
-            Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing motion: {tag} ({clip.name}) on slot {currentEmotionSlot}");
+            // Handle eye control override per gesture
+            if (entry.overrideEyeControl)
+                SuspendEyeControl();
+            else
+                RestoreEyeControlIfSuspended();
+
+            // Handle eye blink override per gesture
+            if (entry.overrideEyeBlink)
+                SuspendEyeBlink();
+            else
+                RestoreEyeBlinkIfSuspended();
+
+            Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing motion: {tag} ({entry.clip.name}) on slot {currentEmotionSlot}");
 
             // Alternate slot for next call
             currentEmotionSlot = 1 - currentEmotionSlot;
+        }
+
+        /// <summary>
+        /// Select a weighted random entry from gesture mapping clips.
+        /// </summary>
+        private AnimationEntryBase SelectWeightedGestureEntry(GestureMapping mapping)
+        {
+            var clips = mapping.clips;
+            if (clips.Count == 1)
+                return clips[0];
+
+            float totalWeight = 0f;
+            for (int i = 0; i < clips.Count; i++)
+            {
+                if (clips[i].clip != null)
+                    totalWeight += clips[i].weight;
+            }
+
+            if (totalWeight <= 0f)
+                return clips[0];
+
+            float rand = UnityEngine.Random.Range(0f, totalWeight);
+            float accumulated = 0f;
+            for (int i = 0; i < clips.Count; i++)
+            {
+                if (clips[i].clip == null) continue;
+                accumulated += clips[i].weight;
+                if (rand <= accumulated)
+                    return clips[i];
+            }
+
+            return clips[clips.Count - 1];
         }
 
         #endregion
