@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -245,6 +246,48 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             // Fallback (floating point edge case)
             return candidates[candidates.Count - 1];
+        }
+
+        #endregion
+
+        #region TalkMotion Layer Override
+
+        private Coroutine talkMotionLayerCoroutine;
+
+        /// <summary>
+        /// Smoothly transition the TalkMotion override layer weight.
+        /// Weight 1 = override layer active (zero-motion suppresses Base layer).
+        /// Weight 0 = override layer inactive (Base layer idle plays normally).
+        /// </summary>
+        private void SetTalkMotionOverrideLayerWeight(float targetWeight)
+        {
+            if (talkMotionOverrideLayerIndex < 1 || animator == null)
+                return;
+
+            if (talkMotionLayerCoroutine != null)
+            {
+                StopCoroutine(talkMotionLayerCoroutine);
+            }
+
+            talkMotionLayerCoroutine = StartCoroutine(LerpLayerWeight(
+                talkMotionOverrideLayerIndex, targetWeight, talkMotionLayerTransitionTime));
+        }
+
+        private IEnumerator LerpLayerWeight(int layerIndex, float targetWeight, float duration)
+        {
+            float startWeight = animator.GetLayerWeight(layerIndex);
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                animator.SetLayerWeight(layerIndex, Mathf.Lerp(startWeight, targetWeight, t));
+                yield return null;
+            }
+
+            animator.SetLayerWeight(layerIndex, targetWeight);
+            talkMotionLayerCoroutine = null;
         }
 
         #endregion

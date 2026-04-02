@@ -36,6 +36,8 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private SerializedProperty avatarProp;
         private SerializedProperty animatorControllerProp;
         private SerializedProperty idleAnimationsProp;
+        private SerializedProperty talkMotionOverrideLayerIndexProp;
+        private SerializedProperty talkMotionLayerTransitionTimeProp;
         // -- Emotion Tagging
         private SerializedProperty enableTextEmotionDetectionProp;
         private SerializedProperty maxEmotionTagsPerSentenceProp;
@@ -93,6 +95,8 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             avatarProp = serializedObject.FindProperty("avatar");
             animatorControllerProp = serializedObject.FindProperty("animatorController");
             idleAnimationsProp = serializedObject.FindProperty("idleAnimations");
+            talkMotionOverrideLayerIndexProp = serializedObject.FindProperty("talkMotionOverrideLayerIndex");
+            talkMotionLayerTransitionTimeProp = serializedObject.FindProperty("talkMotionLayerTransitionTime");
             // Emotion Tagging
             enableTextEmotionDetectionProp = serializedObject.FindProperty("enableTextEmotionDetection");
             maxEmotionTagsPerSentenceProp = serializedObject.FindProperty("maxEmotionTagsPerSentence");

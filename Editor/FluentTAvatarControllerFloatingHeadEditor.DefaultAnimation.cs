@@ -17,6 +17,8 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private static readonly GUIContent gc_avatar = new("Avatar", "FluentTAvatar component reference");
         private static readonly GUIContent gc_animController = new("Animator Controller", "Runtime Animator Controller for body animations (required for Default Idle and Server Motion Tagging)");
         private static readonly GUIContent gc_idleAnims = new("Idle Animations", "List of idle animation clips with weights for random selection");
+        private static readonly GUIContent gc_talkMotionLayerIndex = new("Override Layer Index", "Animator layer index with zero-motion idle (Override blend mode). -1 = disabled.");
+        private static readonly GUIContent gc_talkMotionTransitionTime = new("Transition Time", "Time in seconds to smoothly blend the layer weight");
 
         // SwapBuffer check cache
         private int cachedSwapBufferMissing = -1;
@@ -51,6 +53,16 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             EditorGUILayout.Space();
 
             EditorGUILayout.PropertyField(idleAnimationsProp, gc_idleAnims, true);
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("TalkMotion Layer Override", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(talkMotionOverrideLayerIndexProp, gc_talkMotionLayerIndex);
+            EditorGUILayout.PropertyField(talkMotionLayerTransitionTimeProp, gc_talkMotionTransitionTime);
+            EditorGUILayout.HelpBox(
+                "During TalkMotion speech, the specified Animator layer (Override mode, zero-motion idle) " +
+                "is blended to weight 1 to suppress Base layer body motion. " +
+                "Set layer index to -1 to disable.",
+                MessageType.None);
         }
 
         #region SwapBuffer Auto-Setup
