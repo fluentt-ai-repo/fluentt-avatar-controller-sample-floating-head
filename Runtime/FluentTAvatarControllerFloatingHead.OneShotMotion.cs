@@ -81,10 +81,6 @@ namespace FluentT.Avatar.SampleFloatingHead
             if (entry.overrideEyeBlink)
                 SuspendEyeBlink();
 
-            // Suppress base expression during one-shot
-            if (avatar != null)
-                avatar.SuppressBaseExpression = true;
-
             Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing one-shot motion: {motionId} ({entry.clip.name})");
 
             onOneShotMotionStarted?.Invoke(motionId);
@@ -225,10 +221,6 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             RestoreEyeControlIfSuspended();
             RestoreEyeBlinkIfSuspended();
-
-            // Restore base expression when one-shot ends
-            if (avatar != null)
-                avatar.SuppressBaseExpression = false;
 
             string endedMotionId = currentOneShotMotionId;
             isOneShotMotionPlaying = false;

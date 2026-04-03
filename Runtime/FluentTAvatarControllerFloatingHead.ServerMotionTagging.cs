@@ -52,9 +52,6 @@ namespace FluentT.Avatar.SampleFloatingHead
             RestoreEyeBlinkIfSuspended();
             animator.SetTrigger("emotionReset");
 
-            // Restore base expression when gesture ends
-            if (avatar != null)
-                avatar.SuppressBaseExpression = false;
         }
 
         #region Server Motion Tagging Callbacks
@@ -107,10 +104,6 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             // Trigger the animation state
             animator.SetTrigger(triggerName);
-
-            // Suppress base expression during gesture
-            if (avatar != null)
-                avatar.SuppressBaseExpression = true;
 
             // Handle eye control override per gesture
             if (entry.overrideEyeControl)
