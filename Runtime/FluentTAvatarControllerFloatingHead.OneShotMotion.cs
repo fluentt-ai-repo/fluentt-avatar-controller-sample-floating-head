@@ -22,9 +22,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         private string currentGroupId;
         private int lastGroupEntryIndex = -1;
 
-        // Eye control override state
-        private bool isEyeControlSuspendedByOneShot;
-        private bool eyeControlValueBeforeOneShot;
+        // Eye control override state — now uses suppression flags in main class
 
         #region Public API
 
@@ -75,11 +73,9 @@ namespace FluentT.Avatar.SampleFloatingHead
             isOneShotMotionPlaying = true;
             currentOneShotMotionId = motionId;
 
-            // Suspend eye control / eye blink if this motion overrides them
-            if (entry.overrideEyeControl)
-                SuspendEyeControl();
-            if (entry.overrideEyeBlink)
-                SuspendEyeBlink();
+            // Set suppression flags for this motion's overrides
+            _eyeControlSuppressedByOneShot = entry.overrideEyeControl;
+            _eyeBlinkSuppressedByOneShot = entry.overrideEyeBlink;
 
             Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing one-shot motion: {motionId} ({entry.clip.name})");
 
@@ -192,25 +188,6 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         #region Internal
 
-        private void SuspendEyeControl()
-        {
-            if (!isEyeControlSuspendedByOneShot)
-            {
-                eyeControlValueBeforeOneShot = enableEyeControl;
-                isEyeControlSuspendedByOneShot = true;
-            }
-            enableEyeControl = false;
-        }
-
-        private void RestoreEyeControlIfSuspended()
-        {
-            if (isEyeControlSuspendedByOneShot)
-            {
-                enableEyeControl = eyeControlValueBeforeOneShot;
-                isEyeControlSuspendedByOneShot = false;
-            }
-        }
-
         private void StopOneShotMotionInternal()
         {
             if (oneShotCoroutine != null)
@@ -219,8 +196,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 oneShotCoroutine = null;
             }
 
-            RestoreEyeControlIfSuspended();
-            RestoreEyeBlinkIfSuspended();
+            ClearOneShotSuppressionFlags();
 
             string endedMotionId = currentOneShotMotionId;
             isOneShotMotionPlaying = false;
@@ -257,7 +233,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 else
                 {
                     // Group became invalid, stop
-                    RestoreEyeControlIfSuspended();
+                    ClearOneShotSuppressionFlags();
                     isOneShotGroupLooping = false;
                     currentGroupId = null;
                     ResetEmotionState();
@@ -266,7 +242,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
 
             // Single play: return to idle
-            RestoreEyeControlIfSuspended();
+            ClearOneShotSuppressionFlags();
             ResetEmotionState();
             isOneShotMotionPlaying = false;
             currentOneShotMotionId = null;
@@ -289,16 +265,9 @@ namespace FluentT.Avatar.SampleFloatingHead
             animator.SetTrigger(triggerName);
             currentEmotionSlot = 1 - currentEmotionSlot;
 
-            // Handle eye control / eye blink override per group entry
-            if (entry.overrideEyeControl)
-                SuspendEyeControl();
-            else
-                RestoreEyeControlIfSuspended();
-
-            if (entry.overrideEyeBlink)
-                SuspendEyeBlink();
-            else
-                RestoreEyeBlinkIfSuspended();
+            // Set suppression flags per group entry
+            _eyeControlSuppressedByOneShot = entry.overrideEyeControl;
+            _eyeBlinkSuppressedByOneShot = entry.overrideEyeBlink;
 
             string clipName = entry.clip != null ? entry.clip.name : "null";
             isOneShotMotionPlaying = true;

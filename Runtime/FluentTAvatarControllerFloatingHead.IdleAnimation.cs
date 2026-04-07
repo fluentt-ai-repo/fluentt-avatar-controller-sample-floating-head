@@ -20,9 +20,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         // Track which clip index is loaded in each slot (for eye control override)
         private int[] idleSlotClipIndex = new int[2] { -1, -1 };
 
-        // Idle eye control override state (separate from OneShotMotion)
-        private bool isEyeControlSuspendedByIdle;
-        private bool eyeControlValueBeforeIdle;
+        // Idle eye control override state — now uses suppression flags in main class
 
         #region Idle Animation Initialization
 
@@ -168,36 +166,9 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             var entry = idleAnimations[idleClipIndex];
 
-            // Eye control
-            if (entry.overrideEyeControl)
-                SuspendEyeControlByIdle();
-            else
-                RestoreEyeControlFromIdle();
-
-            // Eye blink
-            if (entry.overrideEyeBlink)
-                SuspendEyeBlink();
-            else
-                RestoreEyeBlinkIfSuspended();
-        }
-
-        private void SuspendEyeControlByIdle()
-        {
-            if (!isEyeControlSuspendedByIdle)
-            {
-                eyeControlValueBeforeIdle = enableEyeControl;
-                isEyeControlSuspendedByIdle = true;
-            }
-            enableEyeControl = false;
-        }
-
-        private void RestoreEyeControlFromIdle()
-        {
-            if (isEyeControlSuspendedByIdle)
-            {
-                enableEyeControl = eyeControlValueBeforeIdle;
-                isEyeControlSuspendedByIdle = false;
-            }
+            // Set suppression flags per idle clip
+            _eyeControlSuppressedByIdle = entry.overrideEyeControl;
+            _eyeBlinkSuppressedByIdle = entry.overrideEyeBlink;
         }
 
         #endregion
@@ -287,9 +258,9 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             isTalkMotionIdleActive = true;
 
-            // TalkMotion idle has no overrides — restore if suspended by normal idle
-            RestoreEyeControlFromIdle();
-            RestoreEyeBlinkIfSuspended();
+            // TalkMotion idle has no overrides — clear idle suppression
+            _eyeControlSuppressedByIdle = false;
+            _eyeBlinkSuppressedByIdle = false;
 
             ExecuteIdleSwap(talkMotionIdleClip, -1);
         }

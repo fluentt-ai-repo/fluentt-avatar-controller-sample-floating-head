@@ -95,6 +95,52 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] [Range(1f, 10f)] public float blinkInterval = 3f;
         [SerializeField] [Range(0f, 5f)] public float blinkIntervalVariance = 1f;
 
+        // ── Suppression Flags ──
+        // Each system independently sets its own suppression flag.
+        // enableEyeControl / enableEyeBlink user settings are NEVER modified by override logic.
+        private bool _eyeControlSuppressedByIdle;
+        private bool _eyeControlSuppressedByOneShot;
+        private bool _eyeControlSuppressedByGesture;
+
+        private bool _eyeBlinkSuppressedByIdle;
+        private bool _eyeBlinkSuppressedByOneShot;
+        private bool _eyeBlinkSuppressedByGesture;
+
+        /// <summary>User setting AND all suppression flags cleared</summary>
+        private bool IsEyeControlEffectivelyEnabled =>
+            enableEyeControl
+            && !_eyeControlSuppressedByIdle
+            && !_eyeControlSuppressedByOneShot
+            && !_eyeControlSuppressedByGesture;
+
+        /// <summary>User setting AND all suppression flags cleared</summary>
+        private bool IsEyeBlinkEffectivelyEnabled =>
+            enableEyeBlink
+            && !_eyeBlinkSuppressedByIdle
+            && !_eyeBlinkSuppressedByOneShot
+            && !_eyeBlinkSuppressedByGesture;
+
+        /// <summary>
+        /// Safety net: clear OneShot suppression flags.
+        /// </summary>
+        private void ClearOneShotSuppressionFlags()
+        {
+            _eyeControlSuppressedByOneShot = false;
+            _eyeBlinkSuppressedByOneShot = false;
+        }
+
+        /// <summary>
+        /// Safety net: clear OneShot and Gesture suppression flags.
+        /// Idle suppression is managed by the Idle system itself.
+        /// </summary>
+        private void ClearAllSuppressionFlags()
+        {
+            _eyeControlSuppressedByOneShot = false;
+            _eyeControlSuppressedByGesture = false;
+            _eyeBlinkSuppressedByOneShot = false;
+            _eyeBlinkSuppressedByGesture = false;
+        }
+
         // Private state
         private Animator animator;
         private AnimatorOverrideController overrideController;

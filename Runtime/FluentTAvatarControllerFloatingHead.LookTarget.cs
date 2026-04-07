@@ -303,9 +303,9 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Update settings (using idle settings as default)
             lookTargetController.SetLookTargetSetting(idleLookSettings);
 
-            // Update settings
+            // Update settings — use effective state so suppression flags are respected
             lookTargetController.enableHeadControl = enableHeadControl;
-            lookTargetController.enableEyeControl = enableEyeControl;
+            lookTargetController.enableEyeControl = IsEyeControlEffectivelyEnabled;
             lookTargetController.headSpeed = headSpeed;
             lookTargetController.eyeSpeed = eyeSpeed;
 
