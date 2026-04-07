@@ -340,6 +340,20 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
         }
 
+        /// <summary>
+        /// Force reset isTalkMotionActive flag.
+        /// Call this as a safety fallback if the flag gets stuck (e.g., after StopTalkMotion
+        /// or when the OnSentenceEnded callback didn't fire with isLastSentence=true).
+        /// </summary>
+        public void ResetTalkMotionActiveState()
+        {
+            if (isTalkMotionActive)
+            {
+                isTalkMotionActive = false;
+                Debug.Log("[FluentTAvatarControllerFloatingHead] isTalkMotionActive force-reset to false");
+            }
+        }
+
         #endregion
     }
 }
