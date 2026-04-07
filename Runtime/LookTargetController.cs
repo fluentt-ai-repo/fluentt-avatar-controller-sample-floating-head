@@ -32,6 +32,9 @@ namespace FluentT.Avatar.SampleFloatingHead
         private float minDistance = 0.5f; // Minimum distance to prevent cross-eye
         private float minDistanceSqr; // Cached squared value for performance
 
+        // Avatar root transform (set externally for reliable hierarchy lookup)
+        private Transform avatarRoot;
+
         // Base transforms (head and eyes)
         private Transform head;
         private Transform leftEyeBall;
@@ -70,6 +73,15 @@ namespace FluentT.Avatar.SampleFloatingHead
         public Transform EyeVirtualTarget => eyeVirtualTarget;
         public Transform LeftEyeVirtualTarget => leftEyeVirtualTarget;
         public Transform RightEyeVirtualTarget => rightEyeVirtualTarget;
+
+        /// <summary>
+        /// Set avatar root transform for reliable hierarchy lookup.
+        /// When set, FindVirtualTargets() uses this instead of parent traversal.
+        /// </summary>
+        public void SetAvatarRoot(Transform root)
+        {
+            avatarRoot = root;
+        }
 
         /// <summary>
         /// Set the Multi-Aim Constraint for head tracking
@@ -180,15 +192,29 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         private void FindVirtualTargets()
         {
-            // Find avatar root: constraint -> TargetTracking -> Avatar
-            Transform avatarRoot = null;
-            if (headAimConstraint != null)
+            // Use externally-set avatarRoot first (most reliable)
+            Transform root = avatarRoot;
+
+            // Fallback: walk up from constraint hierarchy
+            if (root == null && headAimConstraint != null)
             {
                 // HeadTracking -> TargetTracking -> Avatar
-                avatarRoot = headAimConstraint.transform.parent?.parent;
+                root = headAimConstraint.transform.parent?.parent;
+            }
+            if (root == null && leftEyeAimConstraint != null)
+            {
+                root = leftEyeAimConstraint.transform.parent?.parent;
             }
 
-            if (avatarRoot == null)
+            // Fallback: walk up from head bone to find Animator root
+            if (root == null && head != null)
+            {
+                var animator = head.GetComponentInParent<Animator>();
+                if (animator != null)
+                    root = animator.transform;
+            }
+
+            if (root == null)
             {
                 Debug.LogWarning("[LookTargetController] Cannot find avatar root!");
                 return;

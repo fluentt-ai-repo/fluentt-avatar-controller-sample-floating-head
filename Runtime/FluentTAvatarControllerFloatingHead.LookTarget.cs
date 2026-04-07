@@ -82,6 +82,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             lookTargetController = new LookTargetController();
 
             // Configure LookTargetController
+            lookTargetController.SetAvatarRoot(transform);
             lookTargetController.SetHeadAimConstraint(headAimConstraint);
             lookTargetController.SetLeftEyeAimConstraint(leftEyeAimConstraint);
             lookTargetController.SetRightEyeAimConstraint(rightEyeAimConstraint);
@@ -94,7 +95,10 @@ namespace FluentT.Avatar.SampleFloatingHead
             lookTargetController.headSpeed = headSpeed;
             lookTargetController.eyeSpeed = eyeSpeed;
 
-            // Set virtual target references if available (set by Editor during setup)
+            // Auto-find virtual target refs from hierarchy if not serialized
+            TryAutoFindVirtualTargetRefs();
+
+            // Set virtual target references if available (set by Editor, runtime setup, or auto-found above)
             if (eyeControlStrategy == EEyeControlStrategy.TransformCorrected)
             {
                 // TransformCorrected mode: use separate left/right eye targets
@@ -102,13 +106,13 @@ namespace FluentT.Avatar.SampleFloatingHead
                 {
                     lookTargetController.SetVirtualTargetsCorrected(headVirtualTargetRef, leftEyeVirtualTargetRef, rightEyeVirtualTargetRef);
                     lookTargetController.Initialize(useFindMethod: false);
-                    Debug.Log("[FluentTAvatarControllerFloatingHead] Using serialized virtual target references for TransformCorrected mode (optimized)");
+                    Debug.Log("[FluentTAvatarControllerFloatingHead] Using virtual target references for TransformCorrected mode (optimized)");
                 }
                 else
                 {
-                    // Fallback to GameObject.Find if references not set
+                    // Fallback to GameObject.Find via LookTargetController
                     lookTargetController.Initialize(useFindMethod: true);
-                    Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Virtual target references not set, using GameObject.Find (slower)");
+                    Debug.Log("[FluentTAvatarControllerFloatingHead] Virtual target references not found, using GameObject.Find fallback");
                 }
             }
             else
@@ -118,13 +122,13 @@ namespace FluentT.Avatar.SampleFloatingHead
                 {
                     lookTargetController.SetVirtualTargets(headVirtualTargetRef, eyeVirtualTargetRef);
                     lookTargetController.Initialize(useFindMethod: false);
-                    Debug.Log("[FluentTAvatarControllerFloatingHead] Using serialized virtual target references (optimized)");
+                    Debug.Log("[FluentTAvatarControllerFloatingHead] Using virtual target references (optimized)");
                 }
                 else
                 {
-                    // Fallback to GameObject.Find if references not set
+                    // Fallback to GameObject.Find via LookTargetController
                     lookTargetController.Initialize(useFindMethod: true);
-                    Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Virtual target references not set, using GameObject.Find (slower)");
+                    Debug.Log("[FluentTAvatarControllerFloatingHead] Virtual target references not found, using GameObject.Find fallback");
                 }
             }
 
@@ -731,6 +735,39 @@ namespace FluentT.Avatar.SampleFloatingHead
             int layerCount = rigBuilder.layers.Count;
             rigBuilder.Build();
             Debug.Log($"[FluentTAvatarControllerFloatingHead] RigBuilder.Build() called — {layerCount} layer(s)");
+        }
+
+        /// <summary>
+        /// Try to auto-find virtual target references from existing VirtualTargets hierarchy.
+        /// Called before the ref null-check in InitializeLookTarget() to avoid unnecessary GameObject.Find fallback.
+        /// </summary>
+        private void TryAutoFindVirtualTargetRefs()
+        {
+            // Skip if all potentially needed refs are already set
+            bool hasHeadRef = headVirtualTargetRef != null;
+            bool hasEyeRef = eyeVirtualTargetRef != null;
+            bool hasCorrectedRefs = leftEyeVirtualTargetRef != null && rightEyeVirtualTargetRef != null;
+
+            if (hasHeadRef && (eyeControlStrategy == EEyeControlStrategy.TransformCorrected ? hasCorrectedRefs : hasEyeRef))
+                return;
+
+            GameObject container = GameObject.Find("VirtualTargets");
+            if (container == null)
+                return;
+
+            string groupName = $"{gameObject.name}_VirtualTargets";
+            Transform group = container.transform.Find(groupName);
+            if (group == null)
+                return;
+
+            if (headVirtualTargetRef == null)
+                headVirtualTargetRef = group.Find("HeadVirtualTarget");
+            if (eyeVirtualTargetRef == null)
+                eyeVirtualTargetRef = group.Find("EyeVirtualTarget");
+            if (leftEyeVirtualTargetRef == null)
+                leftEyeVirtualTargetRef = group.Find("LeftEyeVirtualTarget");
+            if (rightEyeVirtualTargetRef == null)
+                rightEyeVirtualTargetRef = group.Find("RightEyeVirtualTarget");
         }
 
         /// <summary>
