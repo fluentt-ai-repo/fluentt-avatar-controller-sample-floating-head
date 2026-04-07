@@ -95,8 +95,8 @@ namespace FluentT.Avatar.SampleFloatingHead
             lookTargetController.headSpeed = headSpeed;
             lookTargetController.eyeSpeed = eyeSpeed;
 
-            // Auto-find virtual target refs from hierarchy if not serialized
-            TryAutoFindVirtualTargetRefs();
+            // Ensure virtual targets exist (find or auto-create for runtime Instantiate)
+            EnsureVirtualTargetRefs();
 
             // Set virtual target references if available (set by Editor, runtime setup, or auto-found above)
             if (eyeControlStrategy == EEyeControlStrategy.TransformCorrected)
@@ -738,12 +738,13 @@ namespace FluentT.Avatar.SampleFloatingHead
         }
 
         /// <summary>
-        /// Try to auto-find virtual target references from existing VirtualTargets hierarchy.
-        /// Called before the ref null-check in InitializeLookTarget() to avoid unnecessary GameObject.Find fallback.
+        /// Ensure virtual target references exist. Finds existing ones or auto-creates them
+        /// for runtime Instantiate scenarios where VirtualTargets don't exist in the scene.
+        /// Also updates constraint source objects and rebuilds rig if new targets were created.
         /// </summary>
-        private void TryAutoFindVirtualTargetRefs()
+        private void EnsureVirtualTargetRefs()
         {
-            // Skip if all potentially needed refs are already set
+            // Skip if all needed refs are already set
             bool hasHeadRef = headVirtualTargetRef != null;
             bool hasEyeRef = eyeVirtualTargetRef != null;
             bool hasCorrectedRefs = leftEyeVirtualTargetRef != null && rightEyeVirtualTargetRef != null;
@@ -751,24 +752,144 @@ namespace FluentT.Avatar.SampleFloatingHead
             if (hasHeadRef && (eyeControlStrategy == EEyeControlStrategy.TransformCorrected ? hasCorrectedRefs : hasEyeRef))
                 return;
 
-            GameObject container = GameObject.Find("VirtualTargets");
-            if (container == null)
-                return;
+            // Find or create VirtualTargets group
+            Transform group = RuntimeFindOrCreateAvatarVirtualTargetGroup();
+            bool createdNew = false;
 
-            string cleanName = gameObject.name.Replace("(Clone)", "").Trim();
-            string groupName = $"{cleanName}_VirtualTargets";
-            Transform group = container.transform.Find(groupName);
-            if (group == null)
-                return;
-
-            if (headVirtualTargetRef == null)
+            // Head virtual target
+            if (headVirtualTargetRef == null && enableHeadControl)
+            {
                 headVirtualTargetRef = group.Find("HeadVirtualTarget");
-            if (eyeVirtualTargetRef == null)
-                eyeVirtualTargetRef = group.Find("EyeVirtualTarget");
-            if (leftEyeVirtualTargetRef == null)
-                leftEyeVirtualTargetRef = group.Find("LeftEyeVirtualTarget");
-            if (rightEyeVirtualTargetRef == null)
-                rightEyeVirtualTargetRef = group.Find("RightEyeVirtualTarget");
+                if (headVirtualTargetRef == null && lookHead != null)
+                {
+                    var go = new GameObject("HeadVirtualTarget");
+                    headVirtualTargetRef = go.transform;
+                    headVirtualTargetRef.SetParent(group);
+                    headVirtualTargetRef.position = lookHead.position + lookHead.forward * 2f;
+                    createdNew = true;
+                }
+            }
+
+            // Eye virtual targets based on strategy
+            if (enableEyeControl)
+            {
+                if (eyeControlStrategy == EEyeControlStrategy.TransformCorrected)
+                {
+                    if (leftEyeVirtualTargetRef == null)
+                    {
+                        leftEyeVirtualTargetRef = group.Find("LeftEyeVirtualTarget");
+                        if (leftEyeVirtualTargetRef == null && lookLeftEyeBall != null && lookHead != null)
+                        {
+                            var go = new GameObject("LeftEyeVirtualTarget");
+                            leftEyeVirtualTargetRef = go.transform;
+                            leftEyeVirtualTargetRef.SetParent(group);
+                            leftEyeVirtualTargetRef.position = lookLeftEyeBall.position + lookHead.forward * 2f;
+                            createdNew = true;
+                        }
+                    }
+                    if (rightEyeVirtualTargetRef == null)
+                    {
+                        rightEyeVirtualTargetRef = group.Find("RightEyeVirtualTarget");
+                        if (rightEyeVirtualTargetRef == null && lookRightEyeBall != null && lookHead != null)
+                        {
+                            var go = new GameObject("RightEyeVirtualTarget");
+                            rightEyeVirtualTargetRef = go.transform;
+                            rightEyeVirtualTargetRef.SetParent(group);
+                            rightEyeVirtualTargetRef.position = lookRightEyeBall.position + lookHead.forward * 2f;
+                            createdNew = true;
+                        }
+                    }
+                }
+                else
+                {
+                    if (eyeVirtualTargetRef == null)
+                    {
+                        eyeVirtualTargetRef = group.Find("EyeVirtualTarget");
+                        if (eyeVirtualTargetRef == null && lookLeftEyeBall != null && lookRightEyeBall != null && lookHead != null)
+                        {
+                            var go = new GameObject("EyeVirtualTarget");
+                            eyeVirtualTargetRef = go.transform;
+                            eyeVirtualTargetRef.SetParent(group);
+                            Vector3 eyeCenter = (lookLeftEyeBall.position + lookRightEyeBall.position) * 0.5f;
+                            eyeVirtualTargetRef.position = eyeCenter + lookHead.forward * 2f;
+                            createdNew = true;
+                        }
+                    }
+                }
+            }
+
+            // Update constraint source objects and rebuild rig if new virtual targets were created
+            if (createdNew)
+            {
+                UpdateConstraintSources();
+                var rigBuilder = GetComponent<RigBuilder>();
+                if (rigBuilder != null)
+                {
+                    rigBuilder.Build();
+                    Debug.Log("[FluentTAvatarControllerFloatingHead] VirtualTargets auto-created and rig rebuilt for runtime Instantiate");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Update constraint source objects to point at current virtual target references.
+        /// Called after auto-creating VirtualTargets at runtime.
+        /// </summary>
+        private void UpdateConstraintSources()
+        {
+            if (headAimConstraint != null && headVirtualTargetRef != null)
+            {
+                var data = headAimConstraint.data;
+                var sources = data.sourceObjects;
+                sources.Clear();
+                sources.Add(new WeightedTransform(headVirtualTargetRef, 1f));
+                data.sourceObjects = sources;
+                headAimConstraint.data = data;
+            }
+
+            if (eyeControlStrategy == EEyeControlStrategy.TransformCorrected)
+            {
+                if (leftEyeAimConstraint != null && leftEyeVirtualTargetRef != null)
+                {
+                    var data = leftEyeAimConstraint.data;
+                    var sources = data.sourceObjects;
+                    sources.Clear();
+                    sources.Add(new WeightedTransform(leftEyeVirtualTargetRef, 1f));
+                    data.sourceObjects = sources;
+                    leftEyeAimConstraint.data = data;
+                }
+                if (rightEyeAimConstraint != null && rightEyeVirtualTargetRef != null)
+                {
+                    var data = rightEyeAimConstraint.data;
+                    var sources = data.sourceObjects;
+                    sources.Clear();
+                    sources.Add(new WeightedTransform(rightEyeVirtualTargetRef, 1f));
+                    data.sourceObjects = sources;
+                    rightEyeAimConstraint.data = data;
+                }
+            }
+            else if (eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt)
+            {
+                Transform eyeVT = eyeVirtualTargetRef;
+                if (leftEyeAimConstraint != null && eyeVT != null)
+                {
+                    var data = leftEyeAimConstraint.data;
+                    var sources = data.sourceObjects;
+                    sources.Clear();
+                    sources.Add(new WeightedTransform(eyeVT, 1f));
+                    data.sourceObjects = sources;
+                    leftEyeAimConstraint.data = data;
+                }
+                if (rightEyeAimConstraint != null && eyeVT != null)
+                {
+                    var data = rightEyeAimConstraint.data;
+                    var sources = data.sourceObjects;
+                    sources.Clear();
+                    sources.Add(new WeightedTransform(eyeVT, 1f));
+                    data.sourceObjects = sources;
+                    rightEyeAimConstraint.data = data;
+                }
+            }
         }
 
         /// <summary>
