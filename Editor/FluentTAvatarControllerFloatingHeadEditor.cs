@@ -86,9 +86,15 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private SerializedProperty headVirtualTargetColorProp;
         private SerializedProperty eyeVirtualTargetColorProp;
 
+        // Logging
+        private SerializedProperty enableVerboseLoggingProp;
+
         private void OnEnable()
         {
             if (target == null || serializedObject == null) return;
+
+            // Logging
+            enableVerboseLoggingProp = serializedObject.FindProperty("enableVerboseLogging");
 
             // Default Animation
             avatarProp = serializedObject.FindProperty("avatar");
@@ -192,6 +198,13 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 return;
 
             serializedObject.Update();
+
+            // Verbose Logging toggle at the top
+            if (enableVerboseLoggingProp != null)
+            {
+                EditorGUILayout.PropertyField(enableVerboseLoggingProp, new GUIContent("Verbose Logging", "Enable detailed initialization logs. Disable for production builds."));
+                EditorGUILayout.Space(4);
+            }
 
             expandedSectionThisFrame = SessionState.GetInt(SessionStateKey, SECTION_DEFAULT_ANIMATION);
 
