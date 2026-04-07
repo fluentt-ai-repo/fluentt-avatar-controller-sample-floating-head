@@ -45,7 +45,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Compile regex patterns from dataset
             CompileEmotionPatterns();
 
-            Debug.Log($"[FluentTAvatarControllerFloatingHead] Client emotion tagging initialized with {compiledPatterns?.Count ?? 0} pattern groups compiled");
+            if (enableVerboseLogging) Debug.Log($"[FluentTAvatarControllerFloatingHead] Client emotion tagging initialized with {compiledPatterns?.Count ?? 0} pattern groups compiled");
         }
 
         /// <summary>

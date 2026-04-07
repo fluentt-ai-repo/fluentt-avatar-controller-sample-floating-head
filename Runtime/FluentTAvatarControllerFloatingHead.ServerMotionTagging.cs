@@ -36,7 +36,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
             }
 
-            Debug.Log("[FluentTAvatarControllerFloatingHead] Server motion tagging initialized");
+            if (enableVerboseLogging) Debug.Log("[FluentTAvatarControllerFloatingHead] Server motion tagging initialized");
         }
 
         #endregion

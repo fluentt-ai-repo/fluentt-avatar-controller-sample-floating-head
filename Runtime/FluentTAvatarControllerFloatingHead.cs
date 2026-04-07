@@ -20,6 +20,10 @@ namespace FluentT.Avatar.SampleFloatingHead
     [RequireComponent(typeof(FluentTAvatar))]
     public partial class FluentTAvatarControllerFloatingHead : MonoBehaviour
     {
+        // Logging
+        [Tooltip("Enable detailed initialization logs. Disable for production builds.")]
+        [SerializeField] private bool enableVerboseLogging = true;
+
         // References
         [SerializeField] private FluentTAvatar avatar;
         [SerializeField] private RuntimeAnimatorController animatorController;

@@ -106,7 +106,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 {
                     lookTargetController.SetVirtualTargetsCorrected(headVirtualTargetRef, leftEyeVirtualTargetRef, rightEyeVirtualTargetRef);
                     lookTargetController.Initialize(useFindMethod: false);
-                    Debug.Log("[FluentTAvatarControllerFloatingHead] Using virtual target references for TransformCorrected mode (optimized)");
+                    if (enableVerboseLogging) Debug.Log("[FluentTAvatarControllerFloatingHead] Using virtual target references for TransformCorrected mode (optimized)");
                 }
                 else
                 {
@@ -122,7 +122,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 {
                     lookTargetController.SetVirtualTargets(headVirtualTargetRef, eyeVirtualTargetRef);
                     lookTargetController.Initialize(useFindMethod: false);
-                    Debug.Log("[FluentTAvatarControllerFloatingHead] Using virtual target references (optimized)");
+                    if (enableVerboseLogging) Debug.Log("[FluentTAvatarControllerFloatingHead] Using virtual target references (optimized)");
                 }
                 else
                 {
@@ -135,7 +135,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Enable
             lookTargetController.Enable();
 
-            Debug.Log("[FluentTAvatarControllerFloatingHead] Look target initialized");
+            if (enableVerboseLogging) Debug.Log("[FluentTAvatarControllerFloatingHead] Look target initialized");
         }
 
         /// <summary>
@@ -826,7 +826,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 if (rigBuilder != null)
                 {
                     rigBuilder.Build();
-                    Debug.Log("[FluentTAvatarControllerFloatingHead] VirtualTargets auto-created and rig rebuilt for runtime Instantiate");
+                    if (enableVerboseLogging) Debug.Log("[FluentTAvatarControllerFloatingHead] VirtualTargets auto-created and rig rebuilt for runtime Instantiate");
                 }
             }
         }

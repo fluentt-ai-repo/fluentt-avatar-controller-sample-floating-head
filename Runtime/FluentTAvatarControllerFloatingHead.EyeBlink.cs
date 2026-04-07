@@ -64,7 +64,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
             blinkCoroutine = StartCoroutine(BlinkRoutine());
 
-            Debug.Log($"[FluentTAvatarControllerFloatingHead] Eye blink initialized with clip: {activeBlinkClip.name}, blendMode: {blinkBlendMode}");
+            if (enableVerboseLogging) Debug.Log($"[FluentTAvatarControllerFloatingHead] Eye blink initialized with clip: {activeBlinkClip.name}, blendMode: {blinkBlendMode}");
         }
 
         /// <summary>
