@@ -755,7 +755,8 @@ namespace FluentT.Avatar.SampleFloatingHead
             if (container == null)
                 return;
 
-            string groupName = $"{gameObject.name}_VirtualTargets";
+            string cleanName = gameObject.name.Replace("(Clone)", "").Trim();
+            string groupName = $"{cleanName}_VirtualTargets";
             Transform group = container.transform.Find(groupName);
             if (group == null)
                 return;
@@ -782,7 +783,8 @@ namespace FluentT.Avatar.SampleFloatingHead
                 Debug.Log("[FluentTAvatarControllerFloatingHead] Created VirtualTargets container");
             }
 
-            string groupName = $"{gameObject.name}_VirtualTargets";
+            string cleanName = gameObject.name.Replace("(Clone)", "").Trim();
+            string groupName = $"{cleanName}_VirtualTargets";
             Transform group = container.transform.Find(groupName);
             if (group == null)
             {

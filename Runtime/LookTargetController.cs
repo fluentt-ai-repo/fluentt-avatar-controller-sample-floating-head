@@ -228,8 +228,8 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
             }
 
-            // Find avatar-specific virtual target group
-            string avatarGroupName = $"{avatarRoot.name}_VirtualTargets";
+            // Find avatar-specific virtual target group (strip "(Clone)" suffix from Instantiate)
+            string avatarGroupName = $"{root.name.Replace("(Clone)", "").Trim()}_VirtualTargets";
             Transform avatarVirtualTargetGroup = virtualTargetsContainer.transform.Find(avatarGroupName);
             if (avatarVirtualTargetGroup == null)
             {
