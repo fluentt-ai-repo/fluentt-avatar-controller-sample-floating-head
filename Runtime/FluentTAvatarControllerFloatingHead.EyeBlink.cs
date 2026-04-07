@@ -216,8 +216,8 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         #endregion
 
-        // Suspend/Restore methods removed — replaced by suppression flag pattern.
-        // See _eyeBlinkSuppressedByIdle / _eyeBlinkSuppressedByOneShot / _eyeBlinkSuppressedByGesture
+        // Suspend/Restore methods removed — replaced by priority-based override system.
+        // See _eyeBlinkOverrideByGesture / _eyeBlinkOverrideByOneShot / _eyeBlinkOverrideByIdle
         // in FluentTAvatarControllerFloatingHead.cs
     }
 }

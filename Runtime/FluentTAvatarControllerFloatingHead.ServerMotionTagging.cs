@@ -48,7 +48,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         public void ResetEmotionState()
         {
             if (animator == null) return;
-            ClearAllSuppressionFlags();
+            ClearAllOverrides();
             animator.SetTrigger("emotionReset");
 
         }
@@ -104,9 +104,9 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Trigger the animation state
             animator.SetTrigger(triggerName);
 
-            // Set gesture suppression flags
-            _eyeControlSuppressedByGesture = entry.overrideEyeControl;
-            _eyeBlinkSuppressedByGesture = entry.overrideEyeBlink;
+            // Set gesture override
+            _eyeControlOverrideByGesture = entry.overrideEyeControl;
+            _eyeBlinkOverrideByGesture = entry.overrideEyeBlink;
 
             Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing motion: {tag} ({entry.clip.name}) on slot {currentEmotionSlot}");
 

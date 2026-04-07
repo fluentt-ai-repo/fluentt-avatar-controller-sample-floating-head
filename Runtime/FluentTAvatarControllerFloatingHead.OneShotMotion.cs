@@ -74,8 +74,8 @@ namespace FluentT.Avatar.SampleFloatingHead
             currentOneShotMotionId = motionId;
 
             // Set suppression flags for this motion's overrides
-            _eyeControlSuppressedByOneShot = entry.overrideEyeControl;
-            _eyeBlinkSuppressedByOneShot = entry.overrideEyeBlink;
+            _eyeControlOverrideByOneShot = entry.overrideEyeControl;
+            _eyeBlinkOverrideByOneShot = entry.overrideEyeBlink;
 
             Debug.Log($"[FluentTAvatarControllerFloatingHead] Playing one-shot motion: {motionId} ({entry.clip.name})");
 
@@ -196,7 +196,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 oneShotCoroutine = null;
             }
 
-            ClearOneShotSuppressionFlags();
+            ClearOneShotOverrides();
 
             string endedMotionId = currentOneShotMotionId;
             isOneShotMotionPlaying = false;
@@ -233,7 +233,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 else
                 {
                     // Group became invalid, stop
-                    ClearOneShotSuppressionFlags();
+                    ClearOneShotOverrides();
                     isOneShotGroupLooping = false;
                     currentGroupId = null;
                     ResetEmotionState();
@@ -242,7 +242,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
 
             // Single play: return to idle
-            ClearOneShotSuppressionFlags();
+            ClearOneShotOverrides();
             ResetEmotionState();
             isOneShotMotionPlaying = false;
             currentOneShotMotionId = null;
@@ -265,9 +265,9 @@ namespace FluentT.Avatar.SampleFloatingHead
             animator.SetTrigger(triggerName);
             currentEmotionSlot = 1 - currentEmotionSlot;
 
-            // Set suppression flags per group entry
-            _eyeControlSuppressedByOneShot = entry.overrideEyeControl;
-            _eyeBlinkSuppressedByOneShot = entry.overrideEyeBlink;
+            // Set override per group entry
+            _eyeControlOverrideByOneShot = entry.overrideEyeControl;
+            _eyeBlinkOverrideByOneShot = entry.overrideEyeBlink;
 
             string clipName = entry.clip != null ? entry.clip.name : "null";
             isOneShotMotionPlaying = true;

@@ -166,9 +166,9 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             var entry = idleAnimations[idleClipIndex];
 
-            // Set suppression flags per idle clip
-            _eyeControlSuppressedByIdle = entry.overrideEyeControl;
-            _eyeBlinkSuppressedByIdle = entry.overrideEyeBlink;
+            // Set idle override per clip
+            _eyeControlOverrideByIdle = entry.overrideEyeControl;
+            _eyeBlinkOverrideByIdle = entry.overrideEyeBlink;
         }
 
         #endregion
@@ -258,9 +258,9 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             isTalkMotionIdleActive = true;
 
-            // TalkMotion idle has no overrides — clear idle suppression
-            _eyeControlSuppressedByIdle = false;
-            _eyeBlinkSuppressedByIdle = false;
+            // TalkMotion idle has no overrides — clear idle override
+            _eyeControlOverrideByIdle = false;
+            _eyeBlinkOverrideByIdle = false;
 
             ExecuteIdleSwap(talkMotionIdleClip, -1);
         }

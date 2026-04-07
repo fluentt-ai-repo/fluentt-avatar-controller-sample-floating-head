@@ -95,50 +95,61 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] [Range(1f, 10f)] public float blinkInterval = 3f;
         [SerializeField] [Range(0f, 5f)] public float blinkIntervalVariance = 1f;
 
-        // ── Suppression Flags ──
-        // Each system independently sets its own suppression flag.
-        // enableEyeControl / enableEyeBlink user settings are NEVER modified by override logic.
-        private bool _eyeControlSuppressedByIdle;
-        private bool _eyeControlSuppressedByOneShot;
-        private bool _eyeControlSuppressedByGesture;
+        // ── Eye Override Priority System ──
+        // Priority: User Setting > Gesture > OneShot > Idle
+        // null = system not active, true = suppress, false = don't suppress
+        // The highest-priority ACTIVE system decides; lower ones are ignored.
+        private bool? _eyeControlOverrideByGesture;
+        private bool? _eyeControlOverrideByOneShot;
+        private bool? _eyeControlOverrideByIdle;
 
-        private bool _eyeBlinkSuppressedByIdle;
-        private bool _eyeBlinkSuppressedByOneShot;
-        private bool _eyeBlinkSuppressedByGesture;
+        private bool? _eyeBlinkOverrideByGesture;
+        private bool? _eyeBlinkOverrideByOneShot;
+        private bool? _eyeBlinkOverrideByIdle;
 
-        /// <summary>User setting AND all suppression flags cleared</summary>
+        /// <summary>User setting checked first, then highest-priority active system decides</summary>
         private bool IsEyeControlEffectivelyEnabled =>
-            enableEyeControl
-            && !_eyeControlSuppressedByIdle
-            && !_eyeControlSuppressedByOneShot
-            && !_eyeControlSuppressedByGesture;
+            enableEyeControl && !GetHighestPriorityOverride(
+                _eyeControlOverrideByGesture,
+                _eyeControlOverrideByOneShot,
+                _eyeControlOverrideByIdle);
 
-        /// <summary>User setting AND all suppression flags cleared</summary>
+        /// <summary>User setting checked first, then highest-priority active system decides</summary>
         private bool IsEyeBlinkEffectivelyEnabled =>
-            enableEyeBlink
-            && !_eyeBlinkSuppressedByIdle
-            && !_eyeBlinkSuppressedByOneShot
-            && !_eyeBlinkSuppressedByGesture;
+            enableEyeBlink && !GetHighestPriorityOverride(
+                _eyeBlinkOverrideByGesture,
+                _eyeBlinkOverrideByOneShot,
+                _eyeBlinkOverrideByIdle);
 
         /// <summary>
-        /// Safety net: clear OneShot suppression flags.
+        /// Returns the override value from the highest-priority active system.
+        /// Priority: Gesture > OneShot > Idle.
+        /// Returns false (no suppression) if no system is active.
         /// </summary>
-        private void ClearOneShotSuppressionFlags()
+        private static bool GetHighestPriorityOverride(bool? gesture, bool? oneShot, bool? idle)
         {
-            _eyeControlSuppressedByOneShot = false;
-            _eyeBlinkSuppressedByOneShot = false;
+            if (gesture.HasValue) return gesture.Value;
+            if (oneShot.HasValue) return oneShot.Value;
+            if (idle.HasValue) return idle.Value;
+            return false;
+        }
+
+        private void ClearOneShotOverrides()
+        {
+            _eyeControlOverrideByOneShot = null;
+            _eyeBlinkOverrideByOneShot = null;
         }
 
         /// <summary>
-        /// Safety net: clear OneShot and Gesture suppression flags.
-        /// Idle suppression is managed by the Idle system itself.
+        /// Clear OneShot and Gesture overrides.
+        /// Idle override is managed by the Idle system itself.
         /// </summary>
-        private void ClearAllSuppressionFlags()
+        private void ClearAllOverrides()
         {
-            _eyeControlSuppressedByOneShot = false;
-            _eyeControlSuppressedByGesture = false;
-            _eyeBlinkSuppressedByOneShot = false;
-            _eyeBlinkSuppressedByGesture = false;
+            _eyeControlOverrideByOneShot = null;
+            _eyeControlOverrideByGesture = null;
+            _eyeBlinkOverrideByOneShot = null;
+            _eyeBlinkOverrideByGesture = null;
         }
 
         // Private state
