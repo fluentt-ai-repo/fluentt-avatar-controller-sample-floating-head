@@ -19,6 +19,8 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private static readonly GUIContent gc_eyeAngleThreshold = new("Eye Angle Threshold", "Hysteresis threshold for eye tracking");
         private static readonly GUIContent gc_headAngleLimit = new("Head Angle Limit", "Maximum angle the head can rotate toward the target (head MultiAimConstraint limit)");
         private static readonly GUIContent gc_eyeAngleLimitTransform = new("Eye Angle Limit", "Maximum angle the eyes can rotate toward the target (eye MultiAimConstraint limit)");
+        private static readonly GUIContent gc_autoDetectEyeAim = new("Auto-correct Eye Aim Axis", "Detect each eye/head bone's real gaze axis at init and configure the MultiAimConstraint aim axis accordingly. Required for \"twisted\" rigs whose bone local +Z is not the gaze direction (otherwise left/right eye tracking does not work). Turn off to keep manually-authored constraint axes.");
+        private static readonly GUIContent[] gc_eyeStrategyOptions = { new("Blend Weight (Fluentt)"), new("Transform") };
 
         private void DrawLookTargetSettings()
         {
@@ -149,8 +151,17 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             bool wasEyeEnabled = enableEyeControlProp.boolValue;
             EditorGUILayout.PropertyField(enableEyeControlProp);
 
-            // Eye control strategy selection
-            EditorGUILayout.PropertyField(eyeControlStrategyProp, gc_eyeStrategy);
+            // Eye control strategy selection (2-item dropdown).
+            // TransformCorrected is kept in the enum for backward-compat but hidden behind "Transform";
+            // existing TransformCorrected/Transform values both display as "Transform" and are only
+            // rewritten when the user actually changes the dropdown (so saved values are preserved).
+            EEyeControlStrategy curStrategy = (EEyeControlStrategy)eyeControlStrategyProp.enumValueIndex;
+            int displayIndex = curStrategy == EEyeControlStrategy.BlendWeightFluentt ? 0 : 1;
+            int newIndex = EditorGUILayout.Popup(gc_eyeStrategy, displayIndex, gc_eyeStrategyOptions);
+            if (newIndex != displayIndex)
+                eyeControlStrategyProp.enumValueIndex = newIndex == 0
+                    ? (int)EEyeControlStrategy.BlendWeightFluentt
+                    : (int)EEyeControlStrategy.TransformCorrected;
 
             // Handle Eye Control toggle (only in Editor, not Play mode)
             if (!Application.isPlaying && enableEyeControlProp.boolValue != wasEyeEnabled)
@@ -199,6 +210,9 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     "Multi-Aim Constraints above must be configured.",
                     MessageType.Info);
 
+                EditorGUILayout.PropertyField(autoDetectEyeAimAxisProp, gc_autoDetectEyeAim);
+                DrawEyeTwistDiagnostics();
+
                 EditorGUI.BeginChangeCheck();
                 EditorGUILayout.PropertyField(eyeTransformAngleLimitProp, gc_eyeAngleLimitTransform);
                 if (EditorGUI.EndChangeCheck())
@@ -242,6 +256,42 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     controller.RebuildRig();
                 EditorGUILayout.EndHorizontal();
             }
+        }
+
+        /// <summary>
+        /// Warn (edit mode only) when an eye bone is "twisted" — its local +Z is not the gaze axis.
+        /// Such rigs need auto aim-axis correction or left/right eye tracking will not work.
+        /// </summary>
+        private void DrawEyeTwistDiagnostics()
+        {
+            if (Application.isPlaying) return;
+            Transform head = lookHeadProp.objectReferenceValue as Transform;
+            Transform leftEye = lookLeftEyeBallProp.objectReferenceValue as Transform;
+            Transform rightEye = lookRightEyeBallProp.objectReferenceValue as Transform;
+            if (head == null || (leftEye == null && rightEye == null)) return;
+            Vector3 gazeRef = head.forward;
+            bool twisted = IsBoneTwisted(leftEye, gazeRef) || IsBoneTwisted(rightEye, gazeRef);
+            if (!twisted) return;
+            if (autoDetectEyeAimAxisProp.boolValue)
+            {
+                EditorGUILayout.HelpBox("Twisted eye bone detected — auto aim-axis correction is ON and will be applied at runtime.", MessageType.None);
+            }
+            else
+            {
+                EditorGUILayout.HelpBox("Twisted eye bone detected (bone local +Z is not the gaze axis). 'Auto-correct Eye Aim Axis' is OFF, so horizontal (left/right) eye tracking will NOT work.", MessageType.Warning);
+                if (GUILayout.Button("Enable Auto-correct Eye Aim Axis"))
+                {
+                    autoDetectEyeAimAxisProp.boolValue = true;
+                    serializedObject.ApplyModifiedProperties();
+                }
+            }
+        }
+
+        private static bool IsBoneTwisted(Transform bone, Vector3 gazeWorld)
+        {
+            if (bone == null) return false;
+            Vector3 gazeLocal = (Quaternion.Inverse(bone.rotation) * gazeWorld).normalized;
+            return Vector3.Dot(gazeLocal, Vector3.forward) < 0.99f;
         }
     }
 }

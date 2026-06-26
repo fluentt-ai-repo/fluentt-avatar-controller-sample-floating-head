@@ -53,70 +53,38 @@ namespace FluentT.Avatar.SampleFloatingHead
         }
 
         /// <summary>
-        /// Update left/right eye virtual targets with rotation correction (TransformCorrected mode)
+        /// Update left/right eye virtual targets (TransformCorrected mode).
+        /// Each eye gets its own virtual target placed directly at the real look target, so the two
+        /// eyes converge correctly. The per-frame direction "correction" that used to live here was
+        /// removed: it could not steer the gaze horizontally when the eye bone's aim axis was not its
+        /// gaze axis (the horizontal component degenerated into roll about the gaze axis, so only
+        /// vertical tracking worked). The aim axis is instead detected and configured once at init
+        /// (FluentTAvatarControllerFloatingHead.AutoConfigureLookAimAxes), so aiming the eye's gaze axis at the
+        /// real target now tracks correctly on all axes.
         /// </summary>
         private void UpdateEyeVirtualTargetsCorrected(float deltaTime)
         {
-            // Update left eye virtual target with rotation correction
-            if (leftEyeBall != null && leftEyeVirtualTarget != null)
-            {
-                Vector3 directionToTarget = target.position - leftEyeBall.position;
-                float sqrDistance = directionToTarget.sqrMagnitude;
+            UpdateSingleEyeVirtualTarget(leftEyeBall, leftEyeVirtualTarget, deltaTime);
+            UpdateSingleEyeVirtualTarget(rightEyeBall, rightEyeVirtualTarget, deltaTime);
+        }
 
-                // Apply minimum distance constraint
-                Vector3 targetPos;
-                if (sqrDistance < minDistanceSqr)
-                {
-                    targetPos = leftEyeBall.position + directionToTarget.normalized * minDistance;
-                }
-                else
-                {
-                    targetPos = target.position;
-                }
+        /// <summary>
+        /// Move one eye's virtual target toward the real look target, clamped to a minimum distance
+        /// (prevents cross-eye when the target is very close).
+        /// </summary>
+        private void UpdateSingleEyeVirtualTarget(Transform eyeBall, Transform virtualTarget, float deltaTime)
+        {
+            if (eyeBall == null || virtualTarget == null)
+                return;
 
-                // KEY: Apply rotation correction
-                // The eye has an initial rotation (e.g., 2.7, 337, 0.2) when looking forward
-                // We need to apply the initial rotation to the target direction
-                // So when the eye aims at the corrected target, it actually looks at the real target
-                Vector3 correctedDirection = targetPos - leftEyeBall.position;
+            Vector3 directionToTarget = target.position - eyeBall.position;
+            float sqrDistance = directionToTarget.sqrMagnitude;
 
-                // Transform the direction into eye's local space, then apply initial rotation (NOT inverse)
-                Vector3 localDirection = leftEyeBall.InverseTransformDirection(correctedDirection);
-                Vector3 correctedLocalDirection = initialLeftEyeLocalRotation * localDirection;
-                Vector3 correctedWorldDirection = leftEyeBall.TransformDirection(correctedLocalDirection);
+            Vector3 targetPos = sqrDistance < minDistanceSqr
+                ? eyeBall.position + directionToTarget.normalized * minDistance
+                : target.position;
 
-                Vector3 correctedTargetPos = leftEyeBall.position + correctedWorldDirection.normalized * correctedDirection.magnitude;
-                leftEyeVirtualTarget.position = Vector3.Lerp(leftEyeVirtualTarget.position, correctedTargetPos, eyeSpeed * deltaTime);
-            }
-
-            // Update right eye virtual target with rotation correction
-            if (rightEyeBall != null && rightEyeVirtualTarget != null)
-            {
-                Vector3 directionToTarget = target.position - rightEyeBall.position;
-                float sqrDistance = directionToTarget.sqrMagnitude;
-
-                // Apply minimum distance constraint
-                Vector3 targetPos;
-                if (sqrDistance < minDistanceSqr)
-                {
-                    targetPos = rightEyeBall.position + directionToTarget.normalized * minDistance;
-                }
-                else
-                {
-                    targetPos = target.position;
-                }
-
-                // KEY: Apply rotation correction (same as left eye)
-                Vector3 correctedDirection = targetPos - rightEyeBall.position;
-
-                // Transform the direction into eye's local space, then apply initial rotation (NOT inverse)
-                Vector3 localDirection = rightEyeBall.InverseTransformDirection(correctedDirection);
-                Vector3 correctedLocalDirection = initialRightEyeLocalRotation * localDirection;
-                Vector3 correctedWorldDirection = rightEyeBall.TransformDirection(correctedLocalDirection);
-
-                Vector3 correctedTargetPos = rightEyeBall.position + correctedWorldDirection.normalized * correctedDirection.magnitude;
-                rightEyeVirtualTarget.position = Vector3.Lerp(rightEyeVirtualTarget.position, correctedTargetPos, eyeSpeed * deltaTime);
-            }
+            virtualTarget.position = Vector3.Lerp(virtualTarget.position, targetPos, eyeSpeed * deltaTime);
         }
     }
 #endif

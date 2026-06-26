@@ -27,6 +27,10 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] [Range(0f, 15f)] private float eyeAngleLimitThreshold = 5f;
         // Transform/TransformCorrected strategy: max angle the eyes can rotate (applied to eye MultiAimConstraint limits)
         [SerializeField] [Range(0f, 90f)] private float eyeTransformAngleLimit = 20f;
+        // Auto-detect each eye/head bone's true gaze axis at init and set the MultiAimConstraint aimAxis/upAxis
+        // accordingly. Handles "twisted" rigs whose bone local +Z is not the gaze direction (otherwise horizontal
+        // tracking collapses into roll about the gaze axis). Turn off to keep manually-authored constraint axes.
+        [SerializeField] private bool autoDetectEyeAimAxis = true;
 
         // Virtual Target References (Set by Editor)
         [SerializeField] private Transform headVirtualTargetRef;
@@ -136,6 +140,11 @@ namespace FluentT.Avatar.SampleFloatingHead
                     Debug.Log("[FluentTAvatarControllerFloatingHead] Virtual target references not found, using GameObject.Find fallback");
                 }
             }
+
+            // Detect each eye/head bone's real gaze axis and configure the MultiAimConstraint aim axes
+            // (handles "twisted" rigs), then rebuild the rig so the new axes take effect.
+            if (autoDetectEyeAimAxis)
+                AutoConfigureLookAimAxes();
 
             // Enable
             lookTargetController.Enable();
@@ -282,6 +291,123 @@ namespace FluentT.Avatar.SampleFloatingHead
             {
                 rightEyeTracking.gameObject.SetActive(useTransformEyeTracking);
             }
+        }
+
+        // Bone is considered "aligned" (no twist) when its local +Z is within this dot of the gaze direction.
+        private const float AimAxisAlignedThreshold = 0.99f;
+
+        /// <summary>
+        /// Detect the real gaze axis of each eye (and head) bone and set the corresponding
+        /// MultiAimConstraint aimAxis/upAxis. Eye/head bones can be authored with arbitrary local
+        /// orientation ("twisted" rigs) — e.g. local +Z points down while the gaze is local +Y.
+        /// MultiAimConstraint assumes aimAxis is the gaze axis; when it isn't, horizontal tracking
+        /// collapses into roll about the gaze axis (only vertical tracking survives). Detection runs
+        /// once at init (no per-frame cost) and the rig is rebuilt so the new axes take effect.
+        /// </summary>
+        private void AutoConfigureLookAimAxes()
+        {
+            Vector3 gazeRef = lookHead != null ? lookHead.forward : transform.forward;
+            bool changed = false;
+
+            if (enableEyeControl && eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt)
+            {
+                changed |= ConfigureAimAxisForBone(leftEyeAimConstraint, lookLeftEyeBall, gazeRef);
+                changed |= ConfigureAimAxisForBone(rightEyeAimConstraint, lookRightEyeBall, gazeRef);
+            }
+
+            if (enableHeadControl)
+                changed |= ConfigureAimAxisForBone(headAimConstraint, lookHead, gazeRef);
+
+            if (changed)
+            {
+                var rigBuilder = GetComponent<RigBuilder>();
+                if (rigBuilder != null)
+                {
+                    rigBuilder.Build();
+                    if (enableVerboseLogging) Debug.Log("[FluentTAvatarControllerFloatingHead] Rig rebuilt after auto-configuring aim axes");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Set a single MultiAimConstraint's aimAxis/upAxis to match the bone's true gaze axis.
+        /// Returns true if anything changed (so the caller can rebuild the rig once).
+        /// </summary>
+        private bool ConfigureAimAxisForBone(MultiAimConstraint constraint, Transform bone, Vector3 desiredGazeWorld)
+        {
+            if (constraint == null || bone == null || desiredGazeWorld.sqrMagnitude < 1e-8f)
+                return false;
+
+            Vector3 gazeLocal = (Quaternion.Inverse(bone.rotation) * desiredGazeWorld).normalized;
+
+            MultiAimConstraintData.Axis newAim;
+            MultiAimConstraintData.Axis newUp;
+            MultiAimConstraintData.WorldUpType newWorldUp;
+            Vector3 newOffset;
+
+            var data = constraint.data;
+
+            if (Vector3.Dot(gazeLocal, Vector3.forward) >= AimAxisAlignedThreshold)
+            {
+                // Aligned rig: bone +Z already is the gaze axis (SDK default). Leave as-is.
+                newAim = MultiAimConstraintData.Axis.Z;
+                newUp = MultiAimConstraintData.Axis.Y;
+                newWorldUp = data.worldUpType;
+                newOffset = Vector3.zero;
+            }
+            else
+            {
+                // Twisted rig: aim the local cardinal axis nearest the gaze.
+                Vector3 aimSnapped;
+                newAim = NearestLocalAxis(gazeLocal, out aimSnapped);
+
+                // Pick an up axis perpendicular to the aim axis, nearest to world up.
+                Vector3 upLocal = Vector3.ProjectOnPlane(Quaternion.Inverse(bone.rotation) * Vector3.up, aimSnapped);
+                if (upLocal.sqrMagnitude < 1e-6f)
+                    upLocal = Vector3.ProjectOnPlane(Quaternion.Inverse(bone.rotation) * Vector3.forward, aimSnapped);
+                Vector3 upSnapped;
+                newUp = NearestLocalAxis(upLocal, out upSnapped);
+
+                newWorldUp = MultiAimConstraintData.WorldUpType.SceneUp;
+                // No residual offset: a well-authored eye bone's gaze lies on a cardinal local axis, so the
+                // snapped aim axis already is the gaze. Deriving an offset from a gaze *proxy* (head.forward)
+                // bakes in the head bone's own tilt and harms accuracy (measured: 7.5deg error vs ~1-3deg with
+                // zero offset). Leave offset at zero; the snapped cardinal axis is the gaze axis.
+                newOffset = Vector3.zero;
+            }
+
+            bool changed = data.aimAxis != newAim || data.upAxis != newUp ||
+                           data.worldUpType != newWorldUp || data.offset != newOffset;
+            if (changed)
+            {
+                data.aimAxis = newAim;
+                data.upAxis = newUp;
+                data.worldUpType = newWorldUp;
+                data.offset = newOffset;
+                constraint.data = data;
+                if (enableVerboseLogging)
+                    Debug.Log($"[FluentTAvatarControllerFloatingHead] Auto-aim {bone.name}: aimAxis={newAim} upAxis={newUp} worldUp={newWorldUp} offset={newOffset}");
+            }
+            return changed;
+        }
+
+        /// <summary>Returns the local cardinal axis (one of ±X/±Y/±Z) closest to v, plus its unit vector.</summary>
+        private static MultiAimConstraintData.Axis NearestLocalAxis(Vector3 v, out Vector3 snapped)
+        {
+            v = v.normalized;
+            float ax = Mathf.Abs(v.x), ay = Mathf.Abs(v.y), az = Mathf.Abs(v.z);
+            if (ax >= ay && ax >= az)
+            {
+                snapped = v.x >= 0f ? Vector3.right : Vector3.left;
+                return v.x >= 0f ? MultiAimConstraintData.Axis.X : MultiAimConstraintData.Axis.X_NEG;
+            }
+            if (ay >= az)
+            {
+                snapped = v.y >= 0f ? Vector3.up : Vector3.down;
+                return v.y >= 0f ? MultiAimConstraintData.Axis.Y : MultiAimConstraintData.Axis.Y_NEG;
+            }
+            snapped = v.z >= 0f ? Vector3.forward : Vector3.back;
+            return v.z >= 0f ? MultiAimConstraintData.Axis.Z : MultiAimConstraintData.Axis.Z_NEG;
         }
 
         #endregion
