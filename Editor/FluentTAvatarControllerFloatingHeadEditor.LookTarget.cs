@@ -17,6 +17,8 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private static readonly GUIContent gc_eyeBlendShapes = new("Eye Blend Shapes", "Configure eye look blend shapes");
         private static readonly GUIContent gc_eyeAngleLimit = new("Eye Angle Limit", "Maximum angle the eyes can rotate");
         private static readonly GUIContent gc_eyeAngleThreshold = new("Eye Angle Threshold", "Hysteresis threshold for eye tracking");
+        private static readonly GUIContent gc_headAngleLimit = new("Head Angle Limit", "Maximum angle the head can rotate toward the target (head MultiAimConstraint limit)");
+        private static readonly GUIContent gc_eyeAngleLimitTransform = new("Eye Angle Limit", "Maximum angle the eyes can rotate toward the target (eye MultiAimConstraint limit)");
 
         private void DrawLookTargetSettings()
         {
@@ -131,6 +133,15 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorGUILayout.PropertyField(headSpeedProp);
 
+            EditorGUI.BeginChangeCheck();
+            EditorGUILayout.PropertyField(headAngleLimitProp, gc_headAngleLimit);
+            if (EditorGUI.EndChangeCheck())
+            {
+                serializedObject.ApplyModifiedProperties();
+                ApplyAngleLimitsInEditor(controller);
+                serializedObject.Update();
+            }
+
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Eye Control Settings", EditorStyles.boldLabel);
 
@@ -187,6 +198,15 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     "Transform Strategy: Controls eye movement by rotating eye bone Transforms using Animation Rigging.\n" +
                     "Multi-Aim Constraints above must be configured.",
                     MessageType.Info);
+
+                EditorGUI.BeginChangeCheck();
+                EditorGUILayout.PropertyField(eyeTransformAngleLimitProp, gc_eyeAngleLimitTransform);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    serializedObject.ApplyModifiedProperties();
+                    ApplyAngleLimitsInEditor(controller);
+                    serializedObject.Update();
+                }
             }
 
             EditorGUILayout.PropertyField(eyeSpeedProp);

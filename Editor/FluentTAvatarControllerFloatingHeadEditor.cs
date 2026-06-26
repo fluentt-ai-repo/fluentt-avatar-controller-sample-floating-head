@@ -72,11 +72,13 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private SerializedProperty talkingLookSettingsProp;
         private SerializedProperty enableHeadControlProp;
         private SerializedProperty headSpeedProp;
+        private SerializedProperty headAngleLimitProp;
         private SerializedProperty enableEyeControlProp;
         private SerializedProperty eyeControlStrategyProp;
         private SerializedProperty eyeBlendShapesProp;
         private SerializedProperty eyeAngleLimitProp;
         private SerializedProperty eyeAngleLimitThresholdProp;
+        private SerializedProperty eyeTransformAngleLimitProp;
         private SerializedProperty eyeSpeedProp;
         private SerializedProperty showTargetGizmosProp;
         private SerializedProperty actualTargetGizmoSizeProp;
@@ -136,11 +138,13 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             talkingLookSettingsProp = serializedObject.FindProperty("talkingLookSettings");
             enableHeadControlProp = serializedObject.FindProperty("enableHeadControl");
             headSpeedProp = serializedObject.FindProperty("headSpeed");
+            headAngleLimitProp = serializedObject.FindProperty("headAngleLimit");
             enableEyeControlProp = serializedObject.FindProperty("enableEyeControl");
             eyeControlStrategyProp = serializedObject.FindProperty("eyeControlStrategy");
             eyeBlendShapesProp = serializedObject.FindProperty("eyeBlendShapes");
             eyeAngleLimitProp = serializedObject.FindProperty("eyeAngleLimit");
             eyeAngleLimitThresholdProp = serializedObject.FindProperty("eyeAngleLimitThreshold");
+            eyeTransformAngleLimitProp = serializedObject.FindProperty("eyeTransformAngleLimit");
             eyeSpeedProp = serializedObject.FindProperty("eyeSpeed");
             showTargetGizmosProp = serializedObject.FindProperty("showTargetGizmos");
             actualTargetGizmoSizeProp = serializedObject.FindProperty("actualTargetGizmoSize");

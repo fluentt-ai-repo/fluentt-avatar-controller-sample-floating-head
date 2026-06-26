@@ -140,14 +140,18 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     // Set constrained object
                     var data = headConstraint.data;
                     data.constrainedObject = headTransform;
-
-                    // Set limits for head (-45 to 45 degrees)
-                    data.limits = new Vector2(-45f, 45f);
-
                     headConstraint.data = data;
                 }
 
                 Debug.Log($"{LogPrefix} Added Multi-Aim Constraint to HeadTracking");
+            }
+
+            // Apply head angle limit from serialized field (kept in sync for existing constraints too)
+            {
+                float headAngleLimit = GetFieldValue<float>(controller, "headAngleLimit");
+                var limitData = headConstraint.data;
+                limitData.limits = new Vector2(-headAngleLimit, headAngleLimit);
+                headConstraint.data = limitData;
             }
 
             // Create or find avatar virtual target group
@@ -372,14 +376,18 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     // Set constrained object
                     var data = eyeConstraint.data;
                     data.constrainedObject = eyeTransform;
-
-                    // Set limits for eyes (-20 to 20 degrees)
-                    data.limits = new Vector2(-20f, 20f);
-
                     eyeConstraint.data = data;
                 }
 
                 Debug.Log($"{LogPrefix} Added Multi-Aim Constraint to {trackingName}");
+            }
+
+            // Apply eye angle limit from serialized field (kept in sync for existing constraints too)
+            {
+                float eyeTransformAngleLimit = GetFieldValue<float>(controller, "eyeTransformAngleLimit");
+                var limitData = eyeConstraint.data;
+                limitData.limits = new Vector2(-eyeTransformAngleLimit, eyeTransformAngleLimit);
+                eyeConstraint.data = limitData;
             }
 
             // Add shared virtual target to constraint source objects
@@ -505,6 +513,51 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorUtility.SetDirty(controller);
             EditorUtility.SetDirty(avatar);
+        }
+
+        /// <summary>
+        /// Re-apply angle limits to existing constraints in Edit mode (immediate reflect when sliders change).
+        /// MultiAimConstraint limits use [SyncSceneToStream], so changes take effect without a rebuild.
+        /// </summary>
+        private void ApplyAngleLimitsInEditor(FluentTAvatarControllerFloatingHead controller)
+        {
+            if (controller == null)
+                return;
+
+            var headConstraint = GetFieldValue<UnityEngine.Animations.Rigging.MultiAimConstraint>(controller, "headAimConstraint");
+            if (headConstraint != null)
+            {
+                float headAngleLimit = GetFieldValue<float>(controller, "headAngleLimit");
+                var data = headConstraint.data;
+                data.limits = new Vector2(-headAngleLimit, headAngleLimit);
+                headConstraint.data = data;
+                EditorUtility.SetDirty(headConstraint);
+            }
+
+            var strategy = GetFieldValue<EEyeControlStrategy>(controller, "eyeControlStrategy");
+            if (strategy != EEyeControlStrategy.BlendWeightFluentt)
+            {
+                float eyeAngleLimit = GetFieldValue<float>(controller, "eyeTransformAngleLimit");
+                var eyeLimits = new Vector2(-eyeAngleLimit, eyeAngleLimit);
+
+                var leftEye = GetFieldValue<UnityEngine.Animations.Rigging.MultiAimConstraint>(controller, "leftEyeAimConstraint");
+                if (leftEye != null)
+                {
+                    var data = leftEye.data;
+                    data.limits = eyeLimits;
+                    leftEye.data = data;
+                    EditorUtility.SetDirty(leftEye);
+                }
+
+                var rightEye = GetFieldValue<UnityEngine.Animations.Rigging.MultiAimConstraint>(controller, "rightEyeAimConstraint");
+                if (rightEye != null)
+                {
+                    var data = rightEye.data;
+                    data.limits = eyeLimits;
+                    rightEye.data = data;
+                    EditorUtility.SetDirty(rightEye);
+                }
+            }
         }
 
         #endregion

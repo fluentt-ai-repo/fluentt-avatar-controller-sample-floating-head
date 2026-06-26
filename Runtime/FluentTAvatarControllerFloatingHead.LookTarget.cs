@@ -13,6 +13,8 @@ namespace FluentT.Avatar.SampleFloatingHead
     {
         [SerializeField] private bool enableHeadControl = true;
         [SerializeField] [Range(0f, 20f)] private float headSpeed = 5f;
+        // Max angle the head can rotate toward the target (applied to head MultiAimConstraint limits)
+        [SerializeField] [Range(0f, 90f)] private float headAngleLimit = 45f;
 
         [SerializeField] private bool enableEyeControl = true;
         [SerializeField] [Range(0f, 20f)] private float eyeSpeed = 10f;
@@ -20,8 +22,11 @@ namespace FluentT.Avatar.SampleFloatingHead
         // Eye control strategy
         [SerializeField] private EEyeControlStrategy eyeControlStrategy = EEyeControlStrategy.Transform;
         [SerializeField] private EyeBlendShapes eyeBlendShapes = new();
+        // BlendShape strategy: angle cutoff (stop eye tracking beyond this angle) + hysteresis threshold
         [SerializeField] [Range(0f, 45f)] private float eyeAngleLimit = 10f;
         [SerializeField] [Range(0f, 15f)] private float eyeAngleLimitThreshold = 5f;
+        // Transform/TransformCorrected strategy: max angle the eyes can rotate (applied to eye MultiAimConstraint limits)
+        [SerializeField] [Range(0f, 90f)] private float eyeTransformAngleLimit = 20f;
 
         // Virtual Target References (Set by Editor)
         [SerializeField] private Transform headVirtualTargetRef;
@@ -319,6 +324,9 @@ namespace FluentT.Avatar.SampleFloatingHead
             lookTargetController.eyeAngleLimit = eyeAngleLimit;
             lookTargetController.eyeAngleLimitThreshold = eyeAngleLimitThreshold;
 
+            // Sync head/eye MultiAimConstraint angle limits with inspector values (immediate reflect)
+            ApplyAngleLimitsToConstraints();
+
             // Update virtual targets every frame
             lookTargetController.Update(Time.deltaTime);
         }
@@ -482,7 +490,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                     data.constrainedObject = lookHead;
                     data.aimAxis = MultiAimConstraintData.Axis.Z;
                     data.upAxis = MultiAimConstraintData.Axis.Y;
-                    data.limits = new Vector2(-45f, 45f);
+                    data.limits = new Vector2(-headAngleLimit, headAngleLimit);
                     // Runtime AddComponent does NOT call Reset()/SetDefaultValues(),
                     // so constrainedAxes defaults to (false,false,false) instead of (true,true,true).
                     // Without this, axesMask=(0,0,0) and no rotation is applied.
@@ -623,7 +631,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 data.constrainedObject = eyeBoneTransform;
                 data.aimAxis = MultiAimConstraintData.Axis.Z;
                 data.upAxis = MultiAimConstraintData.Axis.Y;
-                data.limits = new Vector2(-20f, 20f);
+                data.limits = new Vector2(-eyeTransformAngleLimit, eyeTransformAngleLimit);
                 // Runtime AddComponent does NOT call Reset()/SetDefaultValues(),
                 // so constrainedAxes defaults to (false,false,false) instead of (true,true,true).
                 data.constrainedXAxis = true;
@@ -888,6 +896,49 @@ namespace FluentT.Avatar.SampleFloatingHead
                     sources.Add(new WeightedTransform(eyeVT, 1f));
                     data.sourceObjects = sources;
                     rightEyeAimConstraint.data = data;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sync MultiAimConstraint angle limits with the serialized headAngleLimit/eyeTransformAngleLimit fields.
+        /// MultiAimConstraint limits use [SyncSceneToStream], so runtime changes apply on the next frame
+        /// without requiring a RigBuilder.Build() rebuild. Eye limits only apply to Transform strategies
+        /// (BlendWeightFluentt has no eye MultiAimConstraint).
+        /// </summary>
+        private void ApplyAngleLimitsToConstraints()
+        {
+            if (headAimConstraint != null)
+            {
+                var headLimits = new Vector2(-headAngleLimit, headAngleLimit);
+                var data = headAimConstraint.data;
+                if (data.limits != headLimits)
+                {
+                    data.limits = headLimits;
+                    headAimConstraint.data = data;
+                }
+            }
+
+            if (eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt)
+            {
+                var eyeLimits = new Vector2(-eyeTransformAngleLimit, eyeTransformAngleLimit);
+                if (leftEyeAimConstraint != null)
+                {
+                    var data = leftEyeAimConstraint.data;
+                    if (data.limits != eyeLimits)
+                    {
+                        data.limits = eyeLimits;
+                        leftEyeAimConstraint.data = data;
+                    }
+                }
+                if (rightEyeAimConstraint != null)
+                {
+                    var data = rightEyeAimConstraint.data;
+                    if (data.limits != eyeLimits)
+                    {
+                        data.limits = eyeLimits;
+                        rightEyeAimConstraint.data = data;
+                    }
                 }
             }
         }
