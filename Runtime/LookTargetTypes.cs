@@ -41,6 +41,24 @@ namespace FluentT.Avatar.SampleFloatingHead
     }
 
     /// <summary>
+    /// How eye bones are aimed at the look target (Transform/TransformCorrected strategies).
+    /// Some rigs author eye bones with negative (mirrored) scale; MultiAimConstraint cannot aim a
+    /// mirrored bone (its world-up twist solve assumes a right-handed basis, so horizontal tracking
+    /// collapses into roll about the gaze axis). The direct-drive solver re-aims the bone from a
+    /// rest-calibrated LookRotation, which is robust to any axis orientation and any scale incl. mirrors.
+    /// </summary>
+    public enum EEyeAimMode
+    {
+        /// Detect mirrored/reflected eye bones at init; if any eye is mirrored, direct-drive both eyes
+        /// (kept uniform so the pair stays consistent), otherwise use MultiAimConstraint.
+        Auto,
+        /// Always MultiAimConstraint (+ Auto-correct Eye Aim Axis). Cheapest/jobified; cannot aim mirrored eye bones.
+        Constraint,
+        /// Always the rest-calibrated direct-drive solver. Robust to any axis/scale incl. mirrored bones.
+        DirectUniversal,
+    }
+
+    /// <summary>
     /// Eye blend shape data
     /// </summary>
     [Serializable]
