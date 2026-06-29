@@ -4,7 +4,8 @@
 
 ## 버전 목록
 
-- [v0.3.3](v0.3.3.md) - 2026-06-26 - Look Target 눈 좌우(yaw) 추적 복구 (현재)
+- [v0.3.4](v0.3.4.md) - 2026-06-29 - 미러(반사) 눈 본 Look Target 추적 복구 (Universal Eye-Aim) (현재)
+- [v0.3.3](v0.3.3.md) - 2026-06-26 - Look Target 눈 좌우(yaw) 추적 복구
 - [v0.3.2](v0.3.2.md) - 2026-06-26 - Look Target 머리/눈 각도 제한 Inspector 노출
 - [v0.3.1](v0.3.1.md) - 2026-04-03 - SuppressBaseExpression 호출 제거 — Base Expression 항상 활성화
 - [v0.3.0](v0.3.0.md) - 2026-04-02 - 자료구조 통일, TalkMotion Idle, overrideEyeBlink, Drag & Drop

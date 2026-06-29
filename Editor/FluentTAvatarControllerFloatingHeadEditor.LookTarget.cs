@@ -20,6 +20,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private static readonly GUIContent gc_headAngleLimit = new("Head Angle Limit", "Maximum angle the head can rotate toward the target (head MultiAimConstraint limit)");
         private static readonly GUIContent gc_eyeAngleLimitTransform = new("Eye Angle Limit", "Maximum angle the eyes can rotate toward the target (eye MultiAimConstraint limit)");
         private static readonly GUIContent gc_autoDetectEyeAim = new("Auto-correct Eye Aim Axis", "Detect each eye/head bone's real gaze axis at init and configure the MultiAimConstraint aim axis accordingly. Required for \"twisted\" rigs whose bone local +Z is not the gaze direction (otherwise left/right eye tracking does not work). Turn off to keep manually-authored constraint axes.");
+        private static readonly GUIContent gc_eyeAimMode = new("Eye Aim Mode", "How eye bones are aimed (Transform strategies).\n\n• Auto: detect mirrored/reflected eye bones at init; if any eye is mirrored, direct-drive both eyes; otherwise keep the MultiAimConstraint path.\n• Constraint: always MultiAimConstraint (+ Auto-correct Eye Aim Axis). Cannot aim mirrored eye bones.\n• Direct Universal: always rest-calibrated direct drive. Robust to any axis/scale incl. mirrored bones; runs in LateUpdate.");
         private static readonly GUIContent[] gc_eyeStrategyOptions = { new("Blend Weight (Fluentt)"), new("Transform") };
 
         private void DrawLookTargetSettings()
@@ -210,8 +211,25 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                     "Multi-Aim Constraints above must be configured.",
                     MessageType.Info);
 
-                EditorGUILayout.PropertyField(autoDetectEyeAimAxisProp, gc_autoDetectEyeAim);
-                DrawEyeTwistDiagnostics();
+                EditorGUILayout.PropertyField(eyeAimModeProp, gc_eyeAimMode);
+                var aimMode = (EEyeAimMode)eyeAimModeProp.enumValueIndex;
+                bool mirrored = AnyEyeBoneReflected();
+                if (aimMode == EEyeAimMode.DirectUniversal || (aimMode == EEyeAimMode.Auto && mirrored))
+                {
+                    EditorGUILayout.HelpBox(
+                        aimMode == EEyeAimMode.Auto
+                            ? "Mirrored (negative-scale) eye bone detected — eyes will be direct-driven (rest-calibrated) at runtime; the eye Multi-Aim Constraints are disabled. The head keeps its constraint."
+                            : "Direct (Universal) eye-aim: eyes are driven directly (rest-calibrated) for any bone axis/scale incl. mirrored bones. The eye Multi-Aim Constraints are disabled at runtime; the head keeps its constraint.",
+                        MessageType.None);
+                }
+                else
+                {
+                    // Constraint path is in effect (Constraint mode, or Auto with no mirror detected).
+                    if (aimMode == EEyeAimMode.Auto)
+                        EditorGUILayout.HelpBox("No mirrored eye bone detected — the Multi-Aim Constraint path will be used.", MessageType.None);
+                    EditorGUILayout.PropertyField(autoDetectEyeAimAxisProp, gc_autoDetectEyeAim);
+                    DrawEyeTwistDiagnostics();
+                }
 
                 EditorGUI.BeginChangeCheck();
                 EditorGUILayout.PropertyField(eyeTransformAngleLimitProp, gc_eyeAngleLimitTransform);
@@ -292,6 +310,18 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             if (bone == null) return false;
             Vector3 gazeLocal = (Quaternion.Inverse(bone.rotation) * gazeWorld).normalized;
             return Vector3.Dot(gazeLocal, Vector3.forward) < 0.99f;
+        }
+
+        /// <summary>
+        /// True when either assigned eye bone has a mirrored/reflected (left-handed) basis
+        /// (matrix determinant &lt; 0) — which MultiAimConstraint cannot aim. Edit-mode preview only.
+        /// </summary>
+        private bool AnyEyeBoneReflected()
+        {
+            var l = lookLeftEyeBallProp.objectReferenceValue as Transform;
+            var r = lookRightEyeBallProp.objectReferenceValue as Transform;
+            return (l != null && l.localToWorldMatrix.determinant < 0f) ||
+                   (r != null && r.localToWorldMatrix.determinant < 0f);
         }
     }
 }

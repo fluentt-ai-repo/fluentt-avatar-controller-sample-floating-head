@@ -32,6 +32,16 @@ namespace FluentT.Avatar.SampleFloatingHead
         // tracking collapses into roll about the gaze axis). Turn off to keep manually-authored constraint axes.
         [SerializeField] private bool autoDetectEyeAimAxis = true;
 
+        // Eye-aim mode for Transform strategies. Some rigs author the eye bones with negative (mirrored)
+        // scale; MultiAimConstraint cannot aim a mirrored bone (its world-up twist solve assumes a
+        // right-handed basis, so horizontal tracking collapses into roll about the gaze axis). The
+        // DirectUniversal solver drives the eye bones directly from a rest-calibrated LookRotation, which
+        // is robust to ANY axis orientation and ANY scale incl. mirrors. Auto (default) detects mirrored
+        // eye bones at init; if any eye is mirrored it direct-drives both eyes (kept uniform so the pair
+        // stays consistent), otherwise it keeps the cheaper jobified constraint path. BlendWeightFluentt
+        // is unaffected.
+        [SerializeField] private EEyeAimMode eyeAimMode = EEyeAimMode.Auto;
+
         // Virtual Target References (Set by Editor)
         [SerializeField] private Transform headVirtualTargetRef;
         [SerializeField] private Transform eyeVirtualTargetRef; // For Transform mode
@@ -148,6 +158,12 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             // Enable
             lookTargetController.Enable();
+
+            // Universal eye-aim: calibrate while the eye bones are still in bind pose (Start runs before the
+            // first animation/rig evaluation) and disable the eye constraints. Only engages when the eye-aim
+            // mode selects it (Auto + mirrored eye bones, or DirectUniversal).
+            if (WillUseUniversalEyeAim())
+                CalibrateUniversalEyeAim();
 
             if (enableVerboseLogging) Debug.Log("[FluentTAvatarControllerFloatingHead] Look target initialized");
         }
@@ -309,7 +325,8 @@ namespace FluentT.Avatar.SampleFloatingHead
             Vector3 gazeRef = lookHead != null ? lookHead.forward : transform.forward;
             bool changed = false;
 
-            if (enableEyeControl && eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt)
+            // Skip eye constraints when the universal direct-drive solver will own the eyes (mirrored rigs).
+            if (enableEyeControl && !WillUseUniversalEyeAim() && eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt)
             {
                 changed |= ConfigureAimAxisForBone(leftEyeAimConstraint, lookLeftEyeBall, gazeRef);
                 changed |= ConfigureAimAxisForBone(rightEyeAimConstraint, lookRightEyeBall, gazeRef);
@@ -410,6 +427,123 @@ namespace FluentT.Avatar.SampleFloatingHead
             return v.z >= 0f ? MultiAimConstraintData.Axis.Z : MultiAimConstraintData.Axis.Z_NEG;
         }
 
+        // ── Universal direct eye-aim solver (handles mirrored / any-scale eye bones) ──────────────────
+        // MultiAimConstraint cannot aim a mirrored (negative-scale / reflected) eye bone: its world-up
+        // twist solve assumes a right-handed basis, so a reflected eye collapses horizontal tracking into
+        // roll about the gaze axis. This solver instead measures each eye's gaze/up direction in its own
+        // local space at the bind pose (which implicitly bakes in the bone's scale/mirror) and re-aims it
+        // directly each LateUpdate — no cardinal-axis or handedness assumption, so it works for any rig.
+        private bool _eyeAimCalibrated;
+        private Vector3 _leftEyeLocalGaze, _leftEyeLocalUp;
+        private Vector3 _rightEyeLocalGaze, _rightEyeLocalUp;
+
+        /// <summary>
+        /// Whether the direct-drive universal eye-aim solver should own the eyes (vs the MultiAimConstraint
+        /// path). DirectUniversal: always; Constraint: never; Auto: only when an eye bone is mirrored/
+        /// reflected (which the constraint cannot aim). BlendWeightFluentt never uses eye constraints.
+        /// </summary>
+        private bool WillUseUniversalEyeAim()
+        {
+            if (!enableEyeControl || eyeControlStrategy == EEyeControlStrategy.BlendWeightFluentt)
+                return false;
+            switch (eyeAimMode)
+            {
+                case EEyeAimMode.DirectUniversal: return true;
+                case EEyeAimMode.Constraint: return false;
+                default: return IsEyeBoneReflected(lookLeftEyeBall) || IsEyeBoneReflected(lookRightEyeBall);
+            }
+        }
+
+        /// <summary>
+        /// True when the bone has a mirrored/reflected (left-handed) basis — an odd number of negative scale
+        /// axes anywhere in its parent chain (matrix determinant &lt; 0). MultiAimConstraint cannot aim it.
+        /// </summary>
+        private static bool IsEyeBoneReflected(Transform bone)
+        {
+            return bone != null && bone.localToWorldMatrix.determinant < 0f;
+        }
+
+        /// <summary>
+        /// Capture each eye's gaze/up direction expressed in its own local space at the bind/rest pose,
+        /// and disable the eye MultiAimConstraints so the rig does not fight the direct drive.
+        /// Must be called while the eye bones are still in bind pose (i.e. from Start, before animation).
+        /// </summary>
+        private void CalibrateUniversalEyeAim()
+        {
+            _eyeAimCalibrated = false;
+            if (lookHead == null)
+                return;
+
+            // The eyes look along the head's forward at rest; capture that direction in each eye's frame.
+            Vector3 gaze0 = lookHead.forward;
+            Vector3 up0 = lookHead.up;
+
+            if (lookLeftEyeBall != null)
+            {
+                Quaternion inv = Quaternion.Inverse(lookLeftEyeBall.rotation);
+                _leftEyeLocalGaze = inv * gaze0;
+                _leftEyeLocalUp = inv * up0;
+            }
+            if (lookRightEyeBall != null)
+            {
+                Quaternion inv = Quaternion.Inverse(lookRightEyeBall.rotation);
+                _rightEyeLocalGaze = inv * gaze0;
+                _rightEyeLocalUp = inv * up0;
+            }
+
+            // Eyes are driven directly in LateUpdate; silence the rig constraints so the PlayableGraph
+            // does not also write eye rotations (which are wrong for mirrored bones).
+            if (leftEyeAimConstraint != null) leftEyeAimConstraint.weight = 0f;
+            if (rightEyeAimConstraint != null) rightEyeAimConstraint.weight = 0f;
+
+            _eyeAimCalibrated = lookLeftEyeBall != null || lookRightEyeBall != null;
+            if (enableVerboseLogging)
+                Debug.Log($"[FluentTAvatarControllerFloatingHead] Universal eye-aim calibrated (L:{lookLeftEyeBall != null} R:{lookRightEyeBall != null})");
+        }
+
+        /// <summary>
+        /// Drive both eye bones to look at the current look target, clamped to eyeTransformAngleLimit and
+        /// smoothed by eyeSpeed. Called every LateUpdate, after the rig/animation has already run.
+        /// </summary>
+        private void DriveUniversalEyeAim()
+        {
+            if (!_eyeAimCalibrated || lookTarget == null)
+                return;
+
+            Vector3 aimPos = lookTarget.position;
+            Vector3 headFwd = lookHead != null ? lookHead.forward : transform.forward;
+            Vector3 worldUp = lookHead != null ? lookHead.up : Vector3.up;
+            float t = Mathf.Clamp01(eyeSpeed * Time.deltaTime);
+
+            AimSingleEyeUniversal(lookLeftEyeBall, _leftEyeLocalGaze, _leftEyeLocalUp, aimPos, headFwd, worldUp, t);
+            AimSingleEyeUniversal(lookRightEyeBall, _rightEyeLocalGaze, _rightEyeLocalUp, aimPos, headFwd, worldUp, t);
+        }
+
+        /// <summary>
+        /// Aim one eye bone so its measured local gaze axis points at <paramref name="aimPos"/>.
+        /// The (gaze, up) local frame is mapped onto the desired world (dir, up) frame via LookRotation,
+        /// which is valid for any handedness/scale because the local frame was measured post-scale.
+        /// </summary>
+        private void AimSingleEyeUniversal(Transform eye, Vector3 localGaze, Vector3 localUp,
+            Vector3 aimPos, Vector3 headFwd, Vector3 worldUp, float t)
+        {
+            if (eye == null)
+                return;
+
+            Vector3 dir = aimPos - eye.position;
+            if (dir.sqrMagnitude < 1e-10f)
+                return;
+            dir.Normalize();
+
+            // Clamp gaze to within eyeTransformAngleLimit of the head forward (mirrors the constraint limit).
+            dir = Vector3.RotateTowards(headFwd, dir, eyeTransformAngleLimit * Mathf.Deg2Rad, 0f);
+
+            Quaternion src = Quaternion.LookRotation(localGaze, localUp);
+            Quaternion targetRot = Quaternion.LookRotation(dir, worldUp) * Quaternion.Inverse(src);
+
+            eye.rotation = Quaternion.Slerp(eye.rotation, targetRot, t);
+        }
+
         #endregion
 
         #region Look Target Control
@@ -464,6 +598,15 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             // LateUpdate for BlendShape strategy
             lookTargetController.LateUpdate(Time.deltaTime);
+
+            // Universal direct eye-aim (Transform strategies). Runs after the rig/animation so it overrides
+            // both the (disabled) eye constraints and the head rig's effect on its eye children. Active only
+            // when calibrated (eye-aim mode selected the direct solver at init).
+            if (_eyeAimCalibrated && IsEyeControlEffectivelyEnabled &&
+                eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt)
+            {
+                DriveUniversalEyeAim();
+            }
         }
 
         /// <summary>

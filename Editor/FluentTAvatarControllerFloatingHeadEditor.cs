@@ -80,6 +80,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private SerializedProperty eyeAngleLimitThresholdProp;
         private SerializedProperty eyeTransformAngleLimitProp;
         private SerializedProperty autoDetectEyeAimAxisProp;
+        private SerializedProperty eyeAimModeProp;
         private SerializedProperty eyeSpeedProp;
         private SerializedProperty showTargetGizmosProp;
         private SerializedProperty actualTargetGizmoSizeProp;
@@ -147,6 +148,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             eyeAngleLimitThresholdProp = serializedObject.FindProperty("eyeAngleLimitThreshold");
             eyeTransformAngleLimitProp = serializedObject.FindProperty("eyeTransformAngleLimit");
             autoDetectEyeAimAxisProp = serializedObject.FindProperty("autoDetectEyeAimAxis");
+            eyeAimModeProp = serializedObject.FindProperty("eyeAimMode");
             eyeSpeedProp = serializedObject.FindProperty("eyeSpeed");
             showTargetGizmosProp = serializedObject.FindProperty("showTargetGizmos");
             actualTargetGizmoSizeProp = serializedObject.FindProperty("actualTargetGizmoSize");
