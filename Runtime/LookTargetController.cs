@@ -46,6 +46,13 @@ namespace FluentT.Avatar.SampleFloatingHead
         public float headSpeed = 5f;
         public float eyeSpeed = 10f;
 
+        // Set by the owner every frame: true when the rest-calibrated direct-drive solver owns that bone.
+        // Such a bone's MultiAimConstraint sits at weight 0 and the solver aims at the real look target,
+        // so nothing reads its virtual target — skip the per-frame Lerp + Transform write (dead work).
+        // BlendWeightFluentt is never direct-driven; it still reads eyeVirtualTarget for its direction calc.
+        public bool headDirectDriven;
+        public bool eyeDirectDriven;
+
         // Eye control strategy
         public EEyeControlStrategy eyeControlStrategy = EEyeControlStrategy.Transform;
         public EyeBlendShapes eyeBlendShapes = new();
@@ -294,8 +301,9 @@ namespace FluentT.Avatar.SampleFloatingHead
             if (target == null)
                 return;
 
-            // Update head virtual target when enabled
-            if (enableHeadControl)
+            // Update head virtual target when enabled (skipped when the head is direct-driven —
+            // its constraint sits at weight 0, so the virtual target feeds nothing)
+            if (enableHeadControl && !headDirectDriven)
             {
                 UpdateHeadVirtualTarget(deltaTime);
             }
@@ -306,8 +314,10 @@ namespace FluentT.Avatar.SampleFloatingHead
                 InitializeBlendShapeValues();
             }
 
-            // Update eye virtual targets when enabled
-            if (enableEyeControl)
+            // Update eye virtual targets when enabled (skipped when the eyes are direct-driven — the
+            // solver aims at the real target. BlendWeightFluentt is never direct-driven and still needs
+            // its virtual target for the direction calculation below.)
+            if (enableEyeControl && !eyeDirectDriven)
             {
                 if (eyeControlStrategy == EEyeControlStrategy.Transform)
                 {
@@ -365,6 +375,23 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
 
             headVirtualTarget.position = Vector3.Lerp(headVirtualTarget.position, targetPos, headSpeed * deltaTime);
+        }
+
+        /// <summary>
+        /// Place the head virtual target straight onto the look target, with no smoothing.
+        /// Called when the head is handed back from the direct-drive solver to its MultiAimConstraint:
+        /// the virtual target was not tracking while the solver owned the bone, so without this the
+        /// constraint would aim at a stale position and swing the head.
+        /// </summary>
+        public void SnapHeadVirtualTargetToTarget()
+        {
+            if (target == null || head == null || headVirtualTarget == null)
+                return;
+
+            Vector3 directionToTarget = target.position - head.position;
+            headVirtualTarget.position = directionToTarget.sqrMagnitude < minDistanceSqr
+                ? head.position + directionToTarget.normalized * minDistance
+                : target.position;
         }
 
         /// <summary>

@@ -36,11 +36,17 @@ namespace FluentT.Avatar.SampleFloatingHead
         // scale; MultiAimConstraint cannot aim a mirrored bone (its world-up twist solve assumes a
         // right-handed basis, so horizontal tracking collapses into roll about the gaze axis). The
         // DirectUniversal solver drives the eye bones directly from a rest-calibrated LookRotation, which
-        // is robust to ANY axis orientation and ANY scale incl. mirrors. Auto (default) detects mirrored
-        // eye bones at init; if any eye is mirrored it direct-drives both eyes (kept uniform so the pair
-        // stays consistent), otherwise it keeps the cheaper jobified constraint path. BlendWeightFluentt
-        // is unaffected.
+        // is robust to ANY axis orientation and ANY scale incl. mirrors. Auto (default) is the same
+        // direct-drive solver: it is exact for any bone axis orientation, so there is no reason to fall
+        // back to the constraint. Constraint keeps the legacy path. BlendWeightFluentt is unaffected.
         [SerializeField] private EEyeAimMode eyeAimMode = EEyeAimMode.Auto;
+
+        // Head-aim mode. DirectCalibrated (default) measures the head bone's true facial forward against
+        // the avatar root at bind pose and drives the bone directly each LateUpdate — exact for rigs whose
+        // head-bone local +Z is not the gaze direction (e.g. Rigify DEF-spine.005 with ~7.5deg rest tilt,
+        // which makes the MultiAim path aim that many degrees above the target) — and aims from the eye
+        // midpoint (no pivot-vs-eye parallax). Constraint keeps the legacy MultiAimConstraint path.
+        [SerializeField] private EHeadAimMode headAimMode = EHeadAimMode.DirectCalibrated;
 
         // Virtual Target References (Set by Editor)
         [SerializeField] private Transform headVirtualTargetRef;
@@ -81,11 +87,16 @@ namespace FluentT.Avatar.SampleFloatingHead
                 FindLookTargetTransforms();
             }
 
+            // Capture bind-pose reference data for the direct-aim solvers before anything can animate
+            // the bones (idempotent — a later re-init reuses the first capture).
+            CaptureLookAimBindPose();
+
             // Control HeadTracking and EyeTracking GameObjects based on enable flags
             UpdateTrackingGameObjectStates();
 
-            // Validate Multi-Aim Constraints (only required when head control is enabled)
-            if (enableHeadControl && headAimConstraint == null)
+            // Validate Multi-Aim Constraints (only required when head control uses the constraint path;
+            // DirectCalibrated drives the head bone directly and needs no constraint)
+            if (enableHeadControl && headAimMode == EHeadAimMode.Constraint && headAimConstraint == null)
             {
                 Debug.LogError("[FluentTAvatarControllerFloatingHead] Head Multi-Aim Constraint not assigned! Please assign it in the Inspector.");
                 return;
@@ -161,9 +172,15 @@ namespace FluentT.Avatar.SampleFloatingHead
 
             // Universal eye-aim: calibrate while the eye bones are still in bind pose (Start runs before the
             // first animation/rig evaluation) and disable the eye constraints. Only engages when the eye-aim
-            // mode selects it (Auto + mirrored eye bones, or DirectUniversal).
+            // mode selects it (Auto/DirectUniversal).
             if (WillUseUniversalEyeAim())
                 CalibrateUniversalEyeAim();
+
+            // Head direct-aim: calibrate the head bone's true facial forward while still in bind pose and
+            // silence the head constraint so the rig does not aim the (possibly tilted) bone +Z axis.
+            // Per-frame gating on enableHeadControl happens in the drive itself.
+            if (headAimMode == EHeadAimMode.DirectCalibrated)
+                CalibrateHeadAim();
 
             if (enableVerboseLogging) Debug.Log("[FluentTAvatarControllerFloatingHead] Look target initialized");
         }
@@ -322,17 +339,23 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         private void AutoConfigureLookAimAxes()
         {
-            Vector3 gazeRef = lookHead != null ? lookHead.forward : transform.forward;
+            // Reference gaze = avatar root forward (bind pose faces root forward). Do NOT use the head
+            // bone's forward here: the head bone's local +Z can be tilted relative to the true gaze, and
+            // for the head constraint itself that reference is self-referential (gazeLocal is identically
+            // Vector3.forward), which made the head always pass as "aligned" and left its rest tilt
+            // uncorrected.
+            Vector3 gazeRef = transform.forward;
             bool changed = false;
 
-            // Skip eye constraints when the universal direct-drive solver will own the eyes (mirrored rigs).
+            // Skip eye constraints when the universal direct-drive solver will own the eyes.
             if (enableEyeControl && !WillUseUniversalEyeAim() && eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt)
             {
                 changed |= ConfigureAimAxisForBone(leftEyeAimConstraint, lookLeftEyeBall, gazeRef);
                 changed |= ConfigureAimAxisForBone(rightEyeAimConstraint, lookRightEyeBall, gazeRef);
             }
 
-            if (enableHeadControl)
+            // Head constraint axes only matter on the legacy path; DirectCalibrated zeroes its weight.
+            if (enableHeadControl && headAimMode == EHeadAimMode.Constraint)
                 changed |= ConfigureAimAxisForBone(headAimConstraint, lookHead, gazeRef);
 
             if (changed)
@@ -434,13 +457,63 @@ namespace FluentT.Avatar.SampleFloatingHead
         // local space at the bind pose (which implicitly bakes in the bone's scale/mirror) and re-aims it
         // directly each LateUpdate — no cardinal-axis or handedness assumption, so it works for any rig.
         private bool _eyeAimCalibrated;
+        private bool _lookAimBindPoseCaptured;
         private Vector3 _leftEyeLocalGaze, _leftEyeLocalUp;
         private Vector3 _rightEyeLocalGaze, _rightEyeLocalUp;
 
+        // Smoothing state: the gaze direction each eye is currently aiming along, in WORLD space, carried
+        // across frames. Smoothing the DIRECTION (not the final bone rotation) is what makes the solver
+        // converge: the Animator rewrites the eye bone every frame, so a Slerp seeded from eye.rotation
+        // restarts from the animated pose each frame and only ever travels a fraction t of the way — the
+        // eyes then settle a fixed angle short of the target, and the error GROWS with framerate (t =
+        // eyeSpeed * deltaTime shrinks). Keeping the direction in a field makes the approach accumulate.
+        // World space (not head-local) so the eyes stay locked on the target while the head turns.
+        private Vector3 _leftEyeSmoothedDir, _rightEyeSmoothedDir;
+        private bool _eyeAimDrivingLastFrame;
+
+        /// <summary>
+        /// Capture the bind-pose reference data shared by the head and eye direct-aim solvers, exactly
+        /// once. The reference gaze is the avatar root's forward (bind pose faces root forward) — NOT the
+        /// head bone's forward, which can be tilted relative to the true gaze (e.g. Rigify DEF-spine.005,
+        /// ~7.5deg) and would bake that tilt into the calibration. Start runs before the first animation
+        /// evaluation, so the first call sees the authored bind pose; later re-inits (e.g.
+        /// SetupLookTargetRigAtRuntime mid-gameplay) reuse the original capture instead of reading an
+        /// animated pose.
+        /// </summary>
+        private void CaptureLookAimBindPose()
+        {
+            if (_lookAimBindPoseCaptured)
+                return;
+
+            Vector3 gaze0 = transform.forward;
+            Vector3 up0 = transform.up;
+
+            if (lookHead != null)
+            {
+                Quaternion inv = Quaternion.Inverse(lookHead.rotation);
+                _headLocalGaze = inv * gaze0;
+                _headLocalUp = inv * up0;
+            }
+            if (lookLeftEyeBall != null)
+            {
+                Quaternion inv = Quaternion.Inverse(lookLeftEyeBall.rotation);
+                _leftEyeLocalGaze = inv * gaze0;
+                _leftEyeLocalUp = inv * up0;
+            }
+            if (lookRightEyeBall != null)
+            {
+                Quaternion inv = Quaternion.Inverse(lookRightEyeBall.rotation);
+                _rightEyeLocalGaze = inv * gaze0;
+                _rightEyeLocalUp = inv * up0;
+            }
+
+            _lookAimBindPoseCaptured = lookHead != null || lookLeftEyeBall != null || lookRightEyeBall != null;
+        }
+
         /// <summary>
         /// Whether the direct-drive universal eye-aim solver should own the eyes (vs the MultiAimConstraint
-        /// path). DirectUniversal: always; Constraint: never; Auto: only when an eye bone is mirrored/
-        /// reflected (which the constraint cannot aim). BlendWeightFluentt never uses eye constraints.
+        /// path). DirectUniversal: always; Constraint: never; Auto: always (the rest-calibrated solver is
+        /// exact for any bone axis/scale). BlendWeightFluentt never uses eye constraints.
         /// </summary>
         private bool WillUseUniversalEyeAim()
         {
@@ -450,9 +523,24 @@ namespace FluentT.Avatar.SampleFloatingHead
             {
                 case EEyeAimMode.DirectUniversal: return true;
                 case EEyeAimMode.Constraint: return false;
-                default: return IsEyeBoneReflected(lookLeftEyeBall) || IsEyeBoneReflected(lookRightEyeBall);
+                // Auto: the rest-calibrated solver is exact for ANY bone axis orientation (incl.
+                // non-cardinal gaze axes, e.g. VRoid eye bones ~23deg off-cardinal) and any scale incl.
+                // mirrored bones, so it is the default for all rigs.
+                default: return true;
             }
         }
+
+        /// <summary>
+        /// True when the direct eye solver owns the eye bones RIGHT NOW: it was calibrated at init AND the
+        /// current strategy still uses it. The strategy term matters because eyeControlStrategy is pushed
+        /// from the inspector every frame and can flip to BlendWeightFluentt during play, while
+        /// _eyeAimCalibrated (captured once at init) cannot. Every "do the eyes belong to the solver?"
+        /// decision must go through this property — a stale ownership flag would freeze the virtual target
+        /// that BlendWeightFluentt reads for its direction calculation, and the eyes would stop tracking.
+        /// The head's equivalent (_headAimCalibrated) is reconciled every frame by SyncHeadAimMode().
+        /// </summary>
+        private bool EyesDirectDriven =>
+            _eyeAimCalibrated && eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt;
 
         /// <summary>
         /// True when the bone has a mirrored/reflected (left-handed) basis — an odd number of negative scale
@@ -471,39 +559,29 @@ namespace FluentT.Avatar.SampleFloatingHead
         private void CalibrateUniversalEyeAim()
         {
             _eyeAimCalibrated = false;
-            if (lookHead == null)
-                return;
 
-            // The eyes look along the head's forward at rest; capture that direction in each eye's frame.
-            Vector3 gaze0 = lookHead.forward;
-            Vector3 up0 = lookHead.up;
-
-            if (lookLeftEyeBall != null)
-            {
-                Quaternion inv = Quaternion.Inverse(lookLeftEyeBall.rotation);
-                _leftEyeLocalGaze = inv * gaze0;
-                _leftEyeLocalUp = inv * up0;
-            }
-            if (lookRightEyeBall != null)
-            {
-                Quaternion inv = Quaternion.Inverse(lookRightEyeBall.rotation);
-                _rightEyeLocalGaze = inv * gaze0;
-                _rightEyeLocalUp = inv * up0;
-            }
+            // Reference directions are captured once at bind pose (see CaptureLookAimBindPose); re-inits
+            // (e.g. SetupLookTargetRigAtRuntime mid-gameplay) reuse the original capture.
+            CaptureLookAimBindPose();
 
             // Eyes are driven directly in LateUpdate; silence the rig constraints so the PlayableGraph
             // does not also write eye rotations (which are wrong for mirrored bones).
             if (leftEyeAimConstraint != null) leftEyeAimConstraint.weight = 0f;
             if (rightEyeAimConstraint != null) rightEyeAimConstraint.weight = 0f;
 
-            _eyeAimCalibrated = lookLeftEyeBall != null || lookRightEyeBall != null;
+            // Force the first drive to seed its smoothed gaze from the (bind/animated) eye pose.
+            _eyeAimDrivingLastFrame = false;
+            _leftEyeSmoothedDir = Vector3.zero;
+            _rightEyeSmoothedDir = Vector3.zero;
+
+            _eyeAimCalibrated = _lookAimBindPoseCaptured && (lookLeftEyeBall != null || lookRightEyeBall != null);
             if (enableVerboseLogging)
                 Debug.Log($"[FluentTAvatarControllerFloatingHead] Universal eye-aim calibrated (L:{lookLeftEyeBall != null} R:{lookRightEyeBall != null})");
         }
 
         /// <summary>
         /// Drive both eye bones to look at the current look target, clamped to eyeTransformAngleLimit and
-        /// smoothed by eyeSpeed. Called every LateUpdate, after the rig/animation has already run.
+        /// smoothed by eyeSpeed. Called every LateUpdate, after the rig/animation and the head aim have run.
         /// </summary>
         private void DriveUniversalEyeAim()
         {
@@ -511,21 +589,33 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
 
             Vector3 aimPos = lookTarget.position;
-            Vector3 headFwd = lookHead != null ? lookHead.forward : transform.forward;
-            Vector3 worldUp = lookHead != null ? lookHead.up : Vector3.up;
+            // Clamp/roll reference = the head's FACIAL forward/up (calibrated), not the raw bone axes,
+            // which can be tilted relative to the face on some rigs.
+            Vector3 headFwd = CurrentHeadGazeDirection();
+            Vector3 worldUp = CurrentHeadUpDirection();
             float t = Mathf.Clamp01(eyeSpeed * Time.deltaTime);
+            // Resuming after a gap (first drive, or eye control was off): start from where the animation
+            // currently has the eye, so the gaze ramps in instead of snapping to a stale direction.
+            bool reseed = !_eyeAimDrivingLastFrame;
 
-            AimSingleEyeUniversal(lookLeftEyeBall, _leftEyeLocalGaze, _leftEyeLocalUp, aimPos, headFwd, worldUp, t);
-            AimSingleEyeUniversal(lookRightEyeBall, _rightEyeLocalGaze, _rightEyeLocalUp, aimPos, headFwd, worldUp, t);
+            AimSingleEyeUniversal(lookLeftEyeBall, _leftEyeLocalGaze, _leftEyeLocalUp,
+                ref _leftEyeSmoothedDir, reseed, aimPos, headFwd, worldUp, t);
+            AimSingleEyeUniversal(lookRightEyeBall, _rightEyeLocalGaze, _rightEyeLocalUp,
+                ref _rightEyeSmoothedDir, reseed, aimPos, headFwd, worldUp, t);
+
+            _eyeAimDrivingLastFrame = true;
         }
 
         /// <summary>
         /// Aim one eye bone so its measured local gaze axis points at <paramref name="aimPos"/>.
         /// The (gaze, up) local frame is mapped onto the desired world (dir, up) frame via LookRotation,
         /// which is valid for any handedness/scale because the local frame was measured post-scale.
+        /// Smoothing is applied to <paramref name="smoothedDir"/> — a world-space direction that persists
+        /// across frames — and the bone rotation is then written outright. Slerping the bone rotation
+        /// instead would restart from the Animator's freshly-written pose every frame and never converge.
         /// </summary>
         private void AimSingleEyeUniversal(Transform eye, Vector3 localGaze, Vector3 localUp,
-            Vector3 aimPos, Vector3 headFwd, Vector3 worldUp, float t)
+            ref Vector3 smoothedDir, bool reseed, Vector3 aimPos, Vector3 headFwd, Vector3 worldUp, float t)
         {
             if (eye == null)
                 return;
@@ -536,12 +626,205 @@ namespace FluentT.Avatar.SampleFloatingHead
             dir.Normalize();
 
             // Clamp gaze to within eyeTransformAngleLimit of the head forward (mirrors the constraint limit).
-            dir = Vector3.RotateTowards(headFwd, dir, eyeTransformAngleLimit * Mathf.Deg2Rad, 0f);
+            float limitRad = eyeTransformAngleLimit * Mathf.Deg2Rad;
+            dir = Vector3.RotateTowards(headFwd, dir, limitRad, 0f);
+
+            if (reseed || smoothedDir.sqrMagnitude < 1e-8f)
+                smoothedDir = eye.rotation * localGaze; // where the animated pose currently looks
+
+            smoothedDir = Vector3.Slerp(smoothedDir, dir, t);
+            if (smoothedDir.sqrMagnitude < 1e-8f)
+                smoothedDir = dir;
+            else
+                smoothedDir.Normalize();
+
+            // Re-clamp after smoothing: the head may have turned since the stored direction was set.
+            Vector3 finalDir = Vector3.RotateTowards(headFwd, smoothedDir, limitRad, 0f);
 
             Quaternion src = Quaternion.LookRotation(localGaze, localUp);
-            Quaternion targetRot = Quaternion.LookRotation(dir, worldUp) * Quaternion.Inverse(src);
+            eye.rotation = Quaternion.LookRotation(finalDir, worldUp) * Quaternion.Inverse(src);
+        }
 
-            eye.rotation = Quaternion.Slerp(eye.rotation, targetRot, t);
+        // ── Rest-calibrated direct head-aim solver ─────────────────────────────────────────────────────
+        // The MultiAimConstraint head path assumes the head bone's local +Z is the facial forward. On many
+        // rigs it is not (measured in-project: Rigify DEF-spine.005 +Z tilted 7.49deg down -> head aims
+        // 7.49deg above the target; other rigs show yawed or flipped head axes). This solver measures the
+        // head bone's true facial forward against the avatar root at bind pose and re-aims it directly each
+        // LateUpdate, as a shortest-arc correction on top of the animated pose (so animated head motion and
+        // twist survive). It also aims from the eye midpoint, removing the pivot-vs-eye parallax error.
+        private bool _headAimCalibrated;
+        private Vector3 _headLocalGaze = Vector3.forward;
+        private Vector3 _headLocalUp = Vector3.up;
+        private Quaternion _headAimCorrection = Quaternion.identity; // smoothed world-space correction
+        private Quaternion _lastWrittenHeadLocalRotation = Quaternion.identity;
+        private Quaternion _lastCleanHeadLocalRotation = Quaternion.identity;
+        private bool _hasLastWrittenHeadRotation;
+
+        /// <summary>
+        /// Activate the direct head-aim solver: reuse the bind-pose capture (see CaptureLookAimBindPose)
+        /// and silence the head MultiAimConstraint so the rig does not fight the direct drive.
+        /// </summary>
+        private void CalibrateHeadAim()
+        {
+            _headAimCalibrated = false;
+            if (lookHead == null)
+                return;
+
+            // Reference directions are captured once at bind pose; safe to re-run mid-play.
+            CaptureLookAimBindPose();
+            ResetLookAimCorrection();
+            _lastCleanHeadLocalRotation = lookHead.localRotation;
+
+            // The head is driven directly in LateUpdate; silence the rig constraint so the PlayableGraph
+            // does not also aim the (possibly tilted) bone +Z axis.
+            if (headAimConstraint != null)
+                headAimConstraint.weight = 0f;
+
+            _headAimCalibrated = _lookAimBindPoseCaptured;
+            if (enableVerboseLogging)
+                Debug.Log($"[FluentTAvatarControllerFloatingHead] Head aim calibrated (bone: {lookHead.name}, localGaze: {_headLocalGaze})");
+        }
+
+        /// <summary>Drop any residual head-aim correction so the next activation ramps in from identity.</summary>
+        private void ResetLookAimCorrection()
+        {
+            _headAimCorrection = Quaternion.identity;
+            _hasLastWrittenHeadRotation = false;
+        }
+
+        /// <summary>
+        /// Drop ALL direct-aim smoothing state (head correction + eye smoothed gaze) so the next drive ramps
+        /// in from the current animated pose. Must run whenever the solvers stop driving for a while: their
+        /// state is absolute (a world-space eye direction, a world-space head correction) and goes stale as
+        /// the avatar or the target keeps moving, which would pop the bones on the first driven frame.
+        /// </summary>
+        private void ResetLookAimSmoothing()
+        {
+            ResetLookAimCorrection();
+            _eyeAimDrivingLastFrame = false;
+            _leftEyeSmoothedDir = Vector3.zero;
+            _rightEyeSmoothedDir = Vector3.zero;
+        }
+
+        /// <summary>
+        /// Keep the head constraint weight and the direct solver's activation consistent with the
+        /// (runtime-editable) headAimMode. Allows switching DirectCalibrated &lt;-&gt; Constraint during
+        /// play: Direct zeroes the constraint and (re)activates the solver from the bind-pose capture;
+        /// Constraint restores the rig weight and releases the solver.
+        /// </summary>
+        private void SyncHeadAimMode()
+        {
+            if (headAimMode == EHeadAimMode.DirectCalibrated)
+            {
+                if (!_headAimCalibrated && lookHead != null)
+                    CalibrateHeadAim(); // reuses the bind-pose capture; safe mid-play
+                if (headAimConstraint != null && headAimConstraint.weight != 0f)
+                    headAimConstraint.weight = 0f;
+            }
+            else
+            {
+                if (_headAimCalibrated)
+                {
+                    _headAimCalibrated = false;
+                    ResetLookAimCorrection();
+                    // Hand the head back to the constraint: its virtual target has been idle while the
+                    // solver owned the bone, so put it on the target to avoid a swing on the first frame.
+                    if (lookTargetController != null)
+                        lookTargetController.SnapHeadVirtualTargetToTarget();
+                }
+                if (headAimConstraint != null && headAimConstraint.weight != 1f)
+                    headAimConstraint.weight = 1f;
+            }
+        }
+
+        /// <summary>
+        /// The head's current FACIAL forward (calibrated), used as the eye clamp reference. Uses the
+        /// bind-pose capture (not the head-solver activation flag) so the reference stays the true facial
+        /// forward even when the head runs on the legacy Constraint mode with a tilted bone axis.
+        /// </summary>
+        private Vector3 CurrentHeadGazeDirection()
+        {
+            if (lookHead == null) return transform.forward;
+            return _lookAimBindPoseCaptured ? lookHead.rotation * _headLocalGaze : lookHead.forward;
+        }
+
+        /// <summary>The head's current FACIAL up (calibrated), used as the eye roll reference.</summary>
+        private Vector3 CurrentHeadUpDirection()
+        {
+            if (lookHead == null) return Vector3.up;
+            return _lookAimBindPoseCaptured ? lookHead.rotation * _headLocalUp : lookHead.up;
+        }
+
+        /// <summary>
+        /// Rotate the head bone so its calibrated facial forward points at the look target, on top of the
+        /// animated pose. Called every LateUpdate (after animation/rig) BEFORE the eye drive, so the eyes
+        /// see the corrected head pose. Clamped to headAngleLimit and smoothed by headSpeed; when tracking
+        /// is disabled the correction fades back to identity (smooth disable, mirrors constraint weight fade).
+        /// </summary>
+        private void DriveCalibratedHeadAim()
+        {
+            if (!_headAimCalibrated || lookHead == null)
+                return;
+
+            // Recover the clean animated rotation. Animation normally rewrites the head's LOCAL rotation
+            // every frame; if it did not (no clip running / no head curve), localRotation still holds last
+            // frame's corrected value, which must not be corrected again (compounding). The comparison is
+            // done in LOCAL space so parent/root motion can never masquerade as an animation rewrite —
+            // otherwise the correction compounds and silently bypasses headAngleLimit.
+            Quaternion animatedLocal = lookHead.localRotation;
+            bool recoveredCleanPose = _hasLastWrittenHeadRotation &&
+                Quaternion.Angle(animatedLocal, _lastWrittenHeadLocalRotation) < 0.01f;
+            if (recoveredCleanPose)
+                animatedLocal = _lastCleanHeadLocalRotation;
+            _lastCleanHeadLocalRotation = animatedLocal;
+            Quaternion parentRot = lookHead.parent != null ? lookHead.parent.rotation : Quaternion.identity;
+            Quaternion animatedRot = parentRot * animatedLocal;
+
+            bool track = enableLookTarget && enableHeadControl && lookTarget != null;
+            Quaternion desired = Quaternion.identity;
+            if (track)
+            {
+                // Aim origin = eye midpoint (predicted post-correction position), so the gaze FROM THE EYES
+                // lands on the target (no pivot parallax). Falls back to the bone pivot when eye bones are
+                // missing or aliased to the head.
+                Vector3 origin = lookHead.position;
+                if (lookLeftEyeBall != null && lookRightEyeBall != null &&
+                    lookLeftEyeBall != lookHead && lookRightEyeBall != lookHead)
+                {
+                    origin = (lookLeftEyeBall.position + lookRightEyeBall.position) * 0.5f;
+                }
+                // Predict the post-correction eye position on the animated path. On the recovered path the
+                // bone still holds last frame's CORRECTED pose, so the offset already contains the
+                // correction and must not be rotated a second time.
+                if (!recoveredCleanPose)
+                    origin = lookHead.position + _headAimCorrection * (origin - lookHead.position);
+
+                Vector3 dir = lookTarget.position - origin;
+                if (dir.sqrMagnitude > 1e-4f)
+                {
+                    dir.Normalize();
+                    Vector3 animatedGaze = animatedRot * _headLocalGaze; // where the face points per animation
+                    desired = Quaternion.FromToRotation(animatedGaze, dir);
+
+                    // Clamp to headAngleLimit (same role as the constraint's rotation limits).
+                    desired.ToAngleAxis(out float ang, out Vector3 axis);
+                    if (ang > 180f) { ang = 360f - ang; axis = -axis; }
+                    if (ang > headAngleLimit && !float.IsNaN(axis.x))
+                        desired = Quaternion.AngleAxis(headAngleLimit, axis);
+                }
+                else
+                {
+                    desired = _headAimCorrection; // target on top of the eyes: hold the current pose
+                }
+            }
+
+            // Smooth toward the desired correction; identity when not tracking = smooth fade-out.
+            float t = Mathf.Clamp01(headSpeed * Time.deltaTime);
+            _headAimCorrection = Quaternion.Slerp(_headAimCorrection, desired, t);
+
+            lookHead.rotation = _headAimCorrection * animatedRot;
+            _lastWrittenHeadLocalRotation = lookHead.localRotation;
+            _hasLastWrittenHeadRotation = true;
         }
 
         #endregion
@@ -584,8 +867,18 @@ namespace FluentT.Avatar.SampleFloatingHead
             lookTargetController.eyeAngleLimit = eyeAngleLimit;
             lookTargetController.eyeAngleLimitThreshold = eyeAngleLimitThreshold;
 
+            // Keep constraint weight and direct-solver activation consistent with the head aim mode
+            // (supports switching DirectCalibrated <-> Constraint during play). Runs first so the
+            // ownership flags below are correct for this frame.
+            SyncHeadAimMode();
+
             // Sync head/eye MultiAimConstraint angle limits with inspector values (immediate reflect)
             ApplyAngleLimitsToConstraints();
+
+            // Tell the controller which bones the direct solver owns, so it can skip the dead per-frame
+            // virtual-target Lerps (a constraint at weight 0 reads nothing).
+            lookTargetController.headDirectDriven = _headAimCalibrated;
+            lookTargetController.eyeDirectDriven = EyesDirectDriven;
 
             // Update virtual targets every frame
             lookTargetController.Update(Time.deltaTime);
@@ -596,16 +889,29 @@ namespace FluentT.Avatar.SampleFloatingHead
             if (!Application.isPlaying || lookTargetController == null)
                 return;
 
+            // Direct head-aim runs first (after animation/rig) so all eye paths below see the corrected
+            // head pose. Active only when calibrated (DirectCalibrated mode selected at init); handles its
+            // own enable gating and fade internally.
+            if (headAimMode == EHeadAimMode.DirectCalibrated)
+                DriveCalibratedHeadAim();
+
             // LateUpdate for BlendShape strategy
             lookTargetController.LateUpdate(Time.deltaTime);
 
             // Universal direct eye-aim (Transform strategies). Runs after the rig/animation so it overrides
-            // both the (disabled) eye constraints and the head rig's effect on its eye children. Active only
-            // when calibrated (eye-aim mode selected the direct solver at init).
-            if (_eyeAimCalibrated && IsEyeControlEffectivelyEnabled &&
-                eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt)
+            // both the (disabled) eye constraints and the head rig's effect on its eye children.
+            // eyeSpeed == 0 means "no eye tracking": drive nothing and let the animation through, mirroring
+            // the head at headSpeed == 0 (whose correction stays identity). Driving with t == 0 would instead
+            // freeze the eyes on the direction captured by the first seed and override the animation forever.
+            if (EyesDirectDriven && IsEyeControlEffectivelyEnabled && eyeSpeed > 0f)
             {
                 DriveUniversalEyeAim();
+            }
+            else
+            {
+                // Not driving this frame — the eyes belong to the animation again. Mark it so the next
+                // drive re-seeds its smoothed gaze from the animated pose instead of snapping to a stale one.
+                _eyeAimDrivingLastFrame = false;
             }
         }
 
@@ -654,11 +960,14 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         private void CleanupVirtualTargets()
         {
-            // Delete avatar-specific virtual target group from VirtualTargets container
+            // Delete avatar-specific virtual target group from VirtualTargets container.
+            // Strip "(Clone)" to match the name the group was CREATED with
+            // (RuntimeFindOrCreateAvatarVirtualTargetGroup / LookTargetController.FindVirtualTargets both
+            // strip it); without this, a runtime-Instantiated avatar leaks its group on destroy.
             GameObject virtualTargetsContainer = GameObject.Find("VirtualTargets");
             if (virtualTargetsContainer != null)
             {
-                string avatarGroupName = $"{gameObject.name}_VirtualTargets";
+                string avatarGroupName = $"{gameObject.name.Replace("(Clone)", "").Trim()}_VirtualTargets";
                 Transform avatarVirtualTargetGroup = virtualTargetsContainer.transform.Find(avatarGroupName);
                 if (avatarVirtualTargetGroup != null)
                 {
@@ -1177,7 +1486,10 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         private void ApplyAngleLimitsToConstraints()
         {
-            if (headAimConstraint != null)
+            // Skip bones the direct solver owns: their constraints sit at weight 0, so writing limits
+            // into them every frame is dead work. The direct solvers clamp with the same serialized
+            // headAngleLimit / eyeTransformAngleLimit values themselves.
+            if (headAimConstraint != null && !_headAimCalibrated)
             {
                 var headLimits = new Vector2(-headAngleLimit, headAngleLimit);
                 var data = headAimConstraint.data;
@@ -1188,7 +1500,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 }
             }
 
-            if (eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt)
+            if (eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt && !EyesDirectDriven)
             {
                 var eyeLimits = new Vector2(-eyeTransformAngleLimit, eyeTransformAngleLimit);
                 if (leftEyeAimConstraint != null)
@@ -1251,6 +1563,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         public void FindLookTargetTransforms() { }
         private void UpdateLookTarget() { }
         private void LateUpdateLookTarget() { }
+        private void ResetLookAimSmoothing() { }
         public void SetLookTarget(Transform target) { lookTarget = target; }
         public void SetLookTargetEnabled(bool enabled) { enableLookTarget = enabled; }
         private void CleanupVirtualTargets() { }

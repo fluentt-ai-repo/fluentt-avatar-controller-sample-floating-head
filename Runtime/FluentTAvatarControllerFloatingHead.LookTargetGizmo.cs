@@ -23,11 +23,17 @@ namespace FluentT.Avatar.SampleFloatingHead
                 Gizmos.DrawSphere(lookTarget.position, actualTargetGizmoSize * 0.3f);
             }
 
-            // Draw virtual targets if look target controller is initialized
+            // Draw virtual targets if look target controller is initialized.
+            // A bone owned by the direct-drive solver has an idle virtual target (see
+            // LookTargetController.headDirectDriven), so drawing it at runtime would show a stale
+            // position that no longer represents where the bone is aiming. Skip those.
             if (lookTargetController != null)
             {
+                bool headVirtualTargetLive = !(Application.isPlaying && _headAimCalibrated);
+                bool eyeVirtualTargetLive = !(Application.isPlaying && EyesDirectDriven);
+
                 // Draw head virtual target
-                if (lookTargetController.HeadVirtualTarget != null)
+                if (headVirtualTargetLive && lookTargetController.HeadVirtualTarget != null)
                 {
                     Gizmos.color = headVirtualTargetColor;
                     Gizmos.DrawWireSphere(lookTargetController.HeadVirtualTarget.position, headVirtualTargetGizmoSize);
@@ -40,9 +46,30 @@ namespace FluentT.Avatar.SampleFloatingHead
                         Gizmos.DrawLine(lookHead.position, lookTargetController.HeadVirtualTarget.position);
                     }
                 }
+                else if (!headVirtualTargetLive && lookTarget != null && lookHead != null)
+                {
+                    // Direct-driven head: draw the real aim ray (from the eye midpoint, where it aims).
+                    Vector3 aimOrigin = (lookLeftEyeBall != null && lookRightEyeBall != null && lookLeftEyeBall != lookHead)
+                        ? (lookLeftEyeBall.position + lookRightEyeBall.position) * 0.5f
+                        : lookHead.position;
+                    Gizmos.color = new Color(headVirtualTargetColor.r, headVirtualTargetColor.g, headVirtualTargetColor.b, 0.5f);
+                    Gizmos.DrawLine(aimOrigin, lookTarget.position);
+                }
 
                 // Draw eye virtual targets
-                if (eyeControlStrategy == EEyeControlStrategy.TransformCorrected)
+                if (!eyeVirtualTargetLive)
+                {
+                    // Direct-driven eyes: draw the real gaze rays instead of the idle virtual targets.
+                    if (lookTarget != null)
+                    {
+                        Gizmos.color = new Color(eyeVirtualTargetColor.r, eyeVirtualTargetColor.g, eyeVirtualTargetColor.b, 0.5f);
+                        if (lookLeftEyeBall != null)
+                            Gizmos.DrawLine(lookLeftEyeBall.position, lookTarget.position);
+                        if (lookRightEyeBall != null)
+                            Gizmos.DrawLine(lookRightEyeBall.position, lookTarget.position);
+                    }
+                }
+                else if (eyeControlStrategy == EEyeControlStrategy.TransformCorrected)
                 {
                     // Draw separate left/right eye virtual targets for TransformCorrected mode
                     if (lookTargetController.LeftEyeVirtualTarget != null)
