@@ -249,6 +249,12 @@ namespace FluentT.Avatar.SampleFloatingHead
 
                 // Build-time event for client-side emotion tagging
                 avatar.callback.onSubtitleContentAdded.AddListener(OnSubtitleContentAdded);
+
+                // Late look-target pass (direct head/eye aim) runs from this callback. OnDisable
+                // unsubscribes it, so re-subscribe here (idempotent) or a disable->enable cycle
+                // permanently silences head/eye aiming.
+                avatar.OnLateUpdateCompleted -= OnAvatarLateUpdateCompleted;
+                avatar.OnLateUpdateCompleted += OnAvatarLateUpdateCompleted;
             }
         }
 
@@ -266,6 +272,10 @@ namespace FluentT.Avatar.SampleFloatingHead
                 // Unsubscribe from LateUpdate completion callback
                 avatar.OnLateUpdateCompleted -= OnAvatarLateUpdateCompleted;
             }
+
+            // Our LateUpdate stops running while disabled, so the direct-aim solvers cannot clear their
+            // own state. Drop it here or the bones pop on re-enable (the avatar/target may have moved).
+            ResetLookAimSmoothing();
         }
 
         private void Start()
@@ -288,10 +298,12 @@ namespace FluentT.Avatar.SampleFloatingHead
             InitializeServerMotionTagging();
             InitializeEyeBlink();
 
-            // Subscribe to avatar's LateUpdate completion callback
+            // Subscribe to avatar's LateUpdate completion callback (idempotent — OnEnable also
+            // subscribes; -= first so we never double-subscribe).
             // This ensures eye BlendShapes are updated AFTER face+head animation
             if (avatar != null)
             {
+                avatar.OnLateUpdateCompleted -= OnAvatarLateUpdateCompleted;
                 avatar.OnLateUpdateCompleted += OnAvatarLateUpdateCompleted;
             }
         }
@@ -312,6 +324,24 @@ namespace FluentT.Avatar.SampleFloatingHead
             if (enableLookTarget && lookTargetController != null)
             {
                 UpdateLookTarget();
+
+                // The late look-target pass (direct head/eye aim) normally runs from the avatar's
+                // OnLateUpdateCompleted callback so it lands after face/head animation. When that event
+                // will not fire (no FluentTAvatar assigned, or it is disabled — e.g. non-selected avatars
+                // in a multi-avatar test scene), run the pass from here instead; the Animator has already
+                // written the pose before any LateUpdate.
+                if (avatar == null || !avatar.isActiveAndEnabled)
+                {
+                    LateUpdateLookTarget();
+                }
+            }
+            else
+            {
+                // Look target off: drop the head correction AND the eyes' smoothed gaze, so a later
+                // re-enable ramps in from the animated pose instead of snapping to stale state. Neither
+                // solver runs while disabled, and both keep world-space state that goes stale as the
+                // avatar or target moves.
+                ResetLookAimSmoothing();
             }
 #endif
         }

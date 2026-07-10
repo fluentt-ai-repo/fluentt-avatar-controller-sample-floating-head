@@ -20,7 +20,8 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private static readonly GUIContent gc_headAngleLimit = new("Head Angle Limit", "Maximum angle the head can rotate toward the target (head MultiAimConstraint limit)");
         private static readonly GUIContent gc_eyeAngleLimitTransform = new("Eye Angle Limit", "Maximum angle the eyes can rotate toward the target (eye MultiAimConstraint limit)");
         private static readonly GUIContent gc_autoDetectEyeAim = new("Auto-correct Eye Aim Axis", "Detect each eye/head bone's real gaze axis at init and configure the MultiAimConstraint aim axis accordingly. Required for \"twisted\" rigs whose bone local +Z is not the gaze direction (otherwise left/right eye tracking does not work). Turn off to keep manually-authored constraint axes.");
-        private static readonly GUIContent gc_eyeAimMode = new("Eye Aim Mode", "How eye bones are aimed (Transform strategies).\n\n• Auto: detect mirrored/reflected eye bones at init; if any eye is mirrored, direct-drive both eyes; otherwise keep the MultiAimConstraint path.\n• Constraint: always MultiAimConstraint (+ Auto-correct Eye Aim Axis). Cannot aim mirrored eye bones.\n• Direct Universal: always rest-calibrated direct drive. Robust to any axis/scale incl. mirrored bones; runs in LateUpdate.");
+        private static readonly GUIContent gc_eyeAimMode = new("Eye Aim Mode", "How eye bones are aimed (Transform strategies).\n\n• Auto: rest-calibrated direct drive (recommended, same as Direct Universal). Exact for any bone axis orientation and any scale incl. mirrored bones.\n• Constraint: legacy MultiAimConstraint (+ Auto-correct Eye Aim Axis). Cannot aim mirrored eye bones; leaves residual error on non-cardinal gaze axes.\n• Direct Universal: always rest-calibrated direct drive; runs in LateUpdate.");
+        private static readonly GUIContent gc_headAimMode = new("Head Aim Mode", "How the head bone is aimed at the look target.\n\n• Direct Calibrated (recommended): measures the head bone's true facial forward against the avatar root at bind pose and drives the bone directly each LateUpdate. Exact even when the head bone's local +Z is tilted relative to the face (e.g. Rigify DEF-spine.005, ~7.5° rest tilt), and aims from the eye midpoint (no pivot parallax). The head Multi-Aim Constraint is disabled at runtime.\n• Constraint: legacy MultiAimConstraint path; assumes head-bone local +Z is the facial forward.");
         private static readonly GUIContent[] gc_eyeStrategyOptions = { new("Blend Weight (Fluentt)"), new("Transform") };
 
         private void DrawLookTargetSettings()
@@ -134,6 +135,22 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 serializedObject.Update();
             }
 
+            EditorGUILayout.PropertyField(headAimModeProp, gc_headAimMode);
+            if ((EHeadAimMode)headAimModeProp.enumValueIndex == EHeadAimMode.DirectCalibrated)
+            {
+                EditorGUILayout.HelpBox(
+                    "Direct Calibrated head-aim: the head bone's true facial forward is measured against the avatar root at init " +
+                    "and the bone is driven directly each LateUpdate (aiming from the eye midpoint). " +
+                    "The head Multi-Aim Constraint is disabled at runtime.",
+                    MessageType.None);
+            }
+            else
+            {
+                // Legacy head constraint path: the aim-axis auto-config gates the head constraint too,
+                // so keep the toggle reachable even when the eye aim mode is not Constraint.
+                EditorGUILayout.PropertyField(autoDetectEyeAimAxisProp, gc_autoDetectEyeAim);
+            }
+
             EditorGUILayout.PropertyField(headSpeedProp);
 
             EditorGUI.BeginChangeCheck();
@@ -213,21 +230,21 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
                 EditorGUILayout.PropertyField(eyeAimModeProp, gc_eyeAimMode);
                 var aimMode = (EEyeAimMode)eyeAimModeProp.enumValueIndex;
-                bool mirrored = AnyEyeBoneReflected();
-                if (aimMode == EEyeAimMode.DirectUniversal || (aimMode == EEyeAimMode.Auto && mirrored))
+                if (aimMode != EEyeAimMode.Constraint)
                 {
                     EditorGUILayout.HelpBox(
-                        aimMode == EEyeAimMode.Auto
-                            ? "Mirrored (negative-scale) eye bone detected — eyes will be direct-driven (rest-calibrated) at runtime; the eye Multi-Aim Constraints are disabled. The head keeps its constraint."
-                            : "Direct (Universal) eye-aim: eyes are driven directly (rest-calibrated) for any bone axis/scale incl. mirrored bones. The eye Multi-Aim Constraints are disabled at runtime; the head keeps its constraint.",
+                        "Direct (rest-calibrated) eye-aim: eyes are driven directly for any bone axis/scale incl. mirrored bones. " +
+                        "The eye Multi-Aim Constraints are disabled at runtime.",
                         MessageType.None);
                 }
                 else
                 {
-                    // Constraint path is in effect (Constraint mode, or Auto with no mirror detected).
-                    if (aimMode == EEyeAimMode.Auto)
-                        EditorGUILayout.HelpBox("No mirrored eye bone detected — the Multi-Aim Constraint path will be used.", MessageType.None);
-                    EditorGUILayout.PropertyField(autoDetectEyeAimAxisProp, gc_autoDetectEyeAim);
+                    // Legacy constraint path is in effect. autoDetectEyeAimAxis is shared with the head
+                    // constraint path, which already drew it above when the head is also on Constraint.
+                    if ((EHeadAimMode)headAimModeProp.enumValueIndex != EHeadAimMode.Constraint)
+                        EditorGUILayout.PropertyField(autoDetectEyeAimAxisProp, gc_autoDetectEyeAim);
+                    if (AnyEyeBoneReflected())
+                        EditorGUILayout.HelpBox("Mirrored (negative-scale) eye bone detected — the Multi-Aim Constraint cannot aim it. Use Auto/Direct Universal eye-aim mode instead.", MessageType.Warning);
                     DrawEyeTwistDiagnostics();
                 }
 
@@ -287,7 +304,9 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             Transform leftEye = lookLeftEyeBallProp.objectReferenceValue as Transform;
             Transform rightEye = lookRightEyeBallProp.objectReferenceValue as Transform;
             if (head == null || (leftEye == null && rightEye == null)) return;
-            Vector3 gazeRef = head.forward;
+            // Reference = avatar root forward (matches runtime calibration; the head bone's own forward
+            // can be tilted relative to the true gaze on some rigs).
+            Vector3 gazeRef = ((FluentTAvatarControllerFloatingHead)target).transform.forward;
             bool twisted = IsBoneTwisted(leftEye, gazeRef) || IsBoneTwisted(rightEye, gazeRef);
             if (!twisted) return;
             if (autoDetectEyeAimAxisProp.boolValue)
