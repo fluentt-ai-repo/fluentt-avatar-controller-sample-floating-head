@@ -7,7 +7,6 @@ namespace FluentT.Avatar.SampleFloatingHead
     /// </summary>
     public partial class FluentTAvatarControllerFloatingHead
     {
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
         #region Gizmo Visualization
 
         private void OnDrawGizmos()
@@ -125,6 +124,5 @@ namespace FluentT.Avatar.SampleFloatingHead
         }
 
         #endregion
-#endif
     }
 }

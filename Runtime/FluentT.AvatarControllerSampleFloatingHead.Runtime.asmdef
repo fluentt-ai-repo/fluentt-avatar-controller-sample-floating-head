@@ -4,8 +4,7 @@
     "references": [
         "GUID:8d1400eb6b7f0ca428a0cc3f52a8a2da",
         "GUID:2d2b84376c88d3049902cac82202a339",
-        "GUID:dd1ef1b960c47ab4cb323f06c956c98c",
-        "Unity.Animation.Rigging"
+        "GUID:dd1ef1b960c47ab4cb323f06c956c98c"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -14,12 +13,6 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [
-        {
-            "name": "com.unity.animation.rigging",
-            "expression": "",
-            "define": "FLUENTT_ANIMATION_RIGGING_AVAILABLE"
-        }
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }

@@ -1,4 +1,3 @@
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
 using FluentT.Animation;
 using System.Collections.Generic;
 using UnityEditor;
@@ -13,15 +12,12 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
     {
         private static readonly GUIContent gc_idleLook = new("Idle Look Settings", "Look target behavior when idle (not talking)");
         private static readonly GUIContent gc_talkingLook = new("Talking Look Settings", "Look target behavior when talking");
-        private static readonly GUIContent gc_eyeStrategy = new("Eye Control Strategy", "Choose between Transform (Animation Rigging) or BlendShape control");
+        private static readonly GUIContent gc_eyeStrategy = new("Eye Control Strategy", "Choose between Transform (direct bone drive) or BlendShape eye control");
         private static readonly GUIContent gc_eyeBlendShapes = new("Eye Blend Shapes", "Configure eye look blend shapes");
         private static readonly GUIContent gc_eyeAngleLimit = new("Eye Angle Limit", "Maximum angle the eyes can rotate");
         private static readonly GUIContent gc_eyeAngleThreshold = new("Eye Angle Threshold", "Hysteresis threshold for eye tracking");
-        private static readonly GUIContent gc_headAngleLimit = new("Head Angle Limit", "Maximum angle the head can rotate toward the target (head MultiAimConstraint limit)");
-        private static readonly GUIContent gc_eyeAngleLimitTransform = new("Eye Angle Limit", "Maximum angle the eyes can rotate toward the target (eye MultiAimConstraint limit)");
-        private static readonly GUIContent gc_autoDetectEyeAim = new("Auto-correct Eye Aim Axis", "Detect each eye/head bone's real gaze axis at init and configure the MultiAimConstraint aim axis accordingly. Required for \"twisted\" rigs whose bone local +Z is not the gaze direction (otherwise left/right eye tracking does not work). Turn off to keep manually-authored constraint axes.");
-        private static readonly GUIContent gc_eyeAimMode = new("Eye Aim Mode", "How eye bones are aimed (Transform strategies).\n\n• Auto: rest-calibrated direct drive (recommended, same as Direct Universal). Exact for any bone axis orientation and any scale incl. mirrored bones.\n• Constraint: legacy MultiAimConstraint (+ Auto-correct Eye Aim Axis). Cannot aim mirrored eye bones; leaves residual error on non-cardinal gaze axes.\n• Direct Universal: always rest-calibrated direct drive; runs in LateUpdate.");
-        private static readonly GUIContent gc_headAimMode = new("Head Aim Mode", "How the head bone is aimed at the look target.\n\n• Direct Calibrated (recommended): measures the head bone's true facial forward against the avatar root at bind pose and drives the bone directly each LateUpdate. Exact even when the head bone's local +Z is tilted relative to the face (e.g. Rigify DEF-spine.005, ~7.5° rest tilt), and aims from the eye midpoint (no pivot parallax). The head Multi-Aim Constraint is disabled at runtime.\n• Constraint: legacy MultiAimConstraint path; assumes head-bone local +Z is the facial forward.");
+        private static readonly GUIContent gc_headAngleLimit = new("Head Angle Limit", "Maximum angle the head can rotate toward the target");
+        private static readonly GUIContent gc_eyeAngleLimitTransform = new("Eye Angle Limit", "Maximum angle the eyes can rotate toward the target");
         private static readonly GUIContent[] gc_eyeStrategyOptions = { new("Blend Weight (Fluentt)"), new("Transform") };
 
         private void DrawLookTargetSettings()
@@ -29,27 +25,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             var controller = (FluentTAvatarControllerFloatingHead)target;
 
             EditorGUILayout.LabelField("Look Target Settings", EditorStyles.boldLabel);
-
-            // Track enableLookTarget changes
-            bool wasEnabled = enableLookTargetProp.boolValue;
-
             EditorGUILayout.PropertyField(enableLookTargetProp);
-
-            // Auto-setup rig structure when enableLookTarget is turned on
-            if (enableLookTargetProp.boolValue && !wasEnabled)
-            {
-                serializedObject.ApplyModifiedProperties();
-                SetupLookTargetRig(controller);
-                serializedObject.Update();
-            }
-            // Disable rig when turned off
-            else if (!enableLookTargetProp.boolValue && wasEnabled)
-            {
-                serializedObject.ApplyModifiedProperties();
-                DisableLookTargetRig(controller);
-                serializedObject.Update();
-            }
-
             EditorGUILayout.PropertyField(lookTargetProp);
 
             EditorGUILayout.Space();
@@ -61,23 +37,17 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 // Find all SkinnedMeshRenderers (self + children) that have blend shapes
                 var headRenderers = new List<SkinnedMeshRenderer>();
 
-                // Check self first
                 if (controller.TryGetComponent<SkinnedMeshRenderer>(out var selfSkmr))
                 {
                     if (selfSkmr.sharedMesh != null && selfSkmr.sharedMesh.blendShapeCount > 0)
-                    {
                         headRenderers.Add(selfSkmr);
-                    }
                 }
 
-                // Then check children
                 var skinnedMeshRenderers = controller.GetComponentsInChildren<SkinnedMeshRenderer>(true);
                 foreach (var skinnedMeshRenderer in skinnedMeshRenderers)
                 {
                     if (skinnedMeshRenderer.sharedMesh != null && skinnedMeshRenderer.sharedMesh.blendShapeCount > 0)
-                    {
                         headRenderers.Add(skinnedMeshRenderer);
-                    }
                 }
 
                 SetFieldValue(controller, "headSkinnedMeshRenderers", headRenderers);
@@ -98,12 +68,6 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             }
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Animation Rigging Constraints", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(headAimConstraintProp);
-            EditorGUILayout.PropertyField(leftEyeAimConstraintProp);
-            EditorGUILayout.PropertyField(rightEyeAimConstraintProp);
-
-            EditorGUILayout.Space();
             EditorGUILayout.LabelField("Eye Transforms", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(lookLeftEyeBallProp);
             EditorGUILayout.PropertyField(lookRightEyeBallProp);
@@ -115,58 +79,17 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Head Control Settings", EditorStyles.boldLabel);
-
-            // Track enableHeadControl changes
-            bool wasHeadEnabled = enableHeadControlProp.boolValue;
             EditorGUILayout.PropertyField(enableHeadControlProp);
-
-            // Handle Head Control toggle (only in Editor, not Play mode)
-            if (!Application.isPlaying && enableHeadControlProp.boolValue != wasHeadEnabled)
-            {
-                serializedObject.ApplyModifiedProperties();
-                if (enableHeadControlProp.boolValue)
-                {
-                    SetupHeadTrackingOnly(controller);
-                }
-                else
-                {
-                    RemoveHeadTrackingOnly(controller);
-                }
-                serializedObject.Update();
-            }
-
-            EditorGUILayout.PropertyField(headAimModeProp, gc_headAimMode);
-            if ((EHeadAimMode)headAimModeProp.enumValueIndex == EHeadAimMode.DirectCalibrated)
-            {
-                EditorGUILayout.HelpBox(
-                    "Direct Calibrated head-aim: the head bone's true facial forward is measured against the avatar root at init " +
-                    "and the bone is driven directly each LateUpdate (aiming from the eye midpoint). " +
-                    "The head Multi-Aim Constraint is disabled at runtime.",
-                    MessageType.None);
-            }
-            else
-            {
-                // Legacy head constraint path: the aim-axis auto-config gates the head constraint too,
-                // so keep the toggle reachable even when the eye aim mode is not Constraint.
-                EditorGUILayout.PropertyField(autoDetectEyeAimAxisProp, gc_autoDetectEyeAim);
-            }
-
+            EditorGUILayout.HelpBox(
+                "The head bone's true facial forward is measured against the avatar root at init and the bone " +
+                "is driven directly each LateUpdate (aiming from the eye midpoint), so it aims exactly even on " +
+                "rigs whose head-bone local +Z is not the gaze direction.",
+                MessageType.None);
             EditorGUILayout.PropertyField(headSpeedProp);
-
-            EditorGUI.BeginChangeCheck();
             EditorGUILayout.PropertyField(headAngleLimitProp, gc_headAngleLimit);
-            if (EditorGUI.EndChangeCheck())
-            {
-                serializedObject.ApplyModifiedProperties();
-                ApplyAngleLimitsInEditor(controller);
-                serializedObject.Update();
-            }
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Eye Control Settings", EditorStyles.boldLabel);
-
-            // Track enableEyeControl changes
-            bool wasEyeEnabled = enableEyeControlProp.boolValue;
             EditorGUILayout.PropertyField(enableEyeControlProp);
 
             // Eye control strategy selection (2-item dropdown).
@@ -180,21 +103,6 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 eyeControlStrategyProp.enumValueIndex = newIndex == 0
                     ? (int)EEyeControlStrategy.BlendWeightFluentt
                     : (int)EEyeControlStrategy.TransformCorrected;
-
-            // Handle Eye Control toggle (only in Editor, not Play mode)
-            if (!Application.isPlaying && enableEyeControlProp.boolValue != wasEyeEnabled)
-            {
-                serializedObject.ApplyModifiedProperties();
-                if (enableEyeControlProp.boolValue)
-                {
-                    SetupEyeTrackingOnly(controller);
-                }
-                else
-                {
-                    RemoveEyeTrackingOnly(controller);
-                }
-                serializedObject.Update();
-            }
 
             // Show different settings based on strategy
             var strategy = (EEyeControlStrategy)eyeControlStrategyProp.enumValueIndex;
@@ -224,38 +132,11 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             else
             {
                 EditorGUILayout.HelpBox(
-                    "Transform Strategy: Controls eye movement by rotating eye bone Transforms using Animation Rigging.\n" +
-                    "Multi-Aim Constraints above must be configured.",
+                    "Transform Strategy: rotates the eye bones directly with a rest-calibrated solver — robust " +
+                    "to any bone axis orientation and any scale, including mirrored (negative-scale) eye bones.",
                     MessageType.Info);
 
-                EditorGUILayout.PropertyField(eyeAimModeProp, gc_eyeAimMode);
-                var aimMode = (EEyeAimMode)eyeAimModeProp.enumValueIndex;
-                if (aimMode != EEyeAimMode.Constraint)
-                {
-                    EditorGUILayout.HelpBox(
-                        "Direct (rest-calibrated) eye-aim: eyes are driven directly for any bone axis/scale incl. mirrored bones. " +
-                        "The eye Multi-Aim Constraints are disabled at runtime.",
-                        MessageType.None);
-                }
-                else
-                {
-                    // Legacy constraint path is in effect. autoDetectEyeAimAxis is shared with the head
-                    // constraint path, which already drew it above when the head is also on Constraint.
-                    if ((EHeadAimMode)headAimModeProp.enumValueIndex != EHeadAimMode.Constraint)
-                        EditorGUILayout.PropertyField(autoDetectEyeAimAxisProp, gc_autoDetectEyeAim);
-                    if (AnyEyeBoneReflected())
-                        EditorGUILayout.HelpBox("Mirrored (negative-scale) eye bone detected — the Multi-Aim Constraint cannot aim it. Use Auto/Direct Universal eye-aim mode instead.", MessageType.Warning);
-                    DrawEyeTwistDiagnostics();
-                }
-
-                EditorGUI.BeginChangeCheck();
                 EditorGUILayout.PropertyField(eyeTransformAngleLimitProp, gc_eyeAngleLimitTransform);
-                if (EditorGUI.EndChangeCheck())
-                {
-                    serializedObject.ApplyModifiedProperties();
-                    ApplyAngleLimitsInEditor(controller);
-                    serializedObject.Update();
-                }
             }
 
             EditorGUILayout.PropertyField(eyeSpeedProp);
@@ -275,73 +156,89 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 EditorGUILayout.PropertyField(eyeVirtualTargetColorProp);
                 EditorGUI.indentLevel--;
             }
-
-            // Runtime Rig Control (Play mode only)
-            if (Application.isPlaying)
-            {
-                EditorGUILayout.Space();
-                EditorGUILayout.LabelField("Runtime Rig Control", EditorStyles.boldLabel);
-
-                EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button("Setup Rig"))
-                    controller.SetupLookTargetRigAtRuntime();
-                if (GUILayout.Button("Destroy Rig"))
-                    controller.DestroyLookTargetRigAtRuntime();
-                if (GUILayout.Button("Rebuild"))
-                    controller.RebuildRig();
-                EditorGUILayout.EndHorizontal();
-            }
         }
 
         /// <summary>
-        /// Warn (edit mode only) when an eye bone is "twisted" — its local +Z is not the gaze axis.
-        /// Such rigs need auto aim-axis correction or left/right eye tracking will not work.
+        /// Auto-find eye look blend shapes from head skinned mesh renderers
         /// </summary>
-        private void DrawEyeTwistDiagnostics()
+        private void AutoFindEyeBlendShapes(FluentTAvatarControllerFloatingHead controller)
         {
-            if (Application.isPlaying) return;
-            Transform head = lookHeadProp.objectReferenceValue as Transform;
-            Transform leftEye = lookLeftEyeBallProp.objectReferenceValue as Transform;
-            Transform rightEye = lookRightEyeBallProp.objectReferenceValue as Transform;
-            if (head == null || (leftEye == null && rightEye == null)) return;
-            // Reference = avatar root forward (matches runtime calibration; the head bone's own forward
-            // can be tilted relative to the true gaze on some rigs).
-            Vector3 gazeRef = ((FluentTAvatarControllerFloatingHead)target).transform.forward;
-            bool twisted = IsBoneTwisted(leftEye, gazeRef) || IsBoneTwisted(rightEye, gazeRef);
-            if (!twisted) return;
-            if (autoDetectEyeAimAxisProp.boolValue)
+            var headSkmr = GetFieldValue<List<SkinnedMeshRenderer>>(controller, "headSkinnedMeshRenderers");
+
+            if (headSkmr == null || headSkmr.Count == 0)
             {
-                EditorGUILayout.HelpBox("Twisted eye bone detected — auto aim-axis correction is ON and will be applied at runtime.", MessageType.None);
+                Debug.LogWarning($"{LogPrefix} No head skinned mesh renderers found. Please assign headSkinnedMeshRenderers first.");
+                return;
+            }
+
+            var eyeBlendShapes = GetFieldValue<EyeBlendShapes>(controller, "eyeBlendShapes");
+
+            if (eyeBlendShapes == null)
+            {
+                eyeBlendShapes = new EyeBlendShapes();
+                SetFieldValue(controller, "eyeBlendShapes", eyeBlendShapes);
+            }
+
+            // Initialize and clear all lists
+            eyeBlendShapes.eyeLookUpLeftIdx = new List<EyeBlendShape>();
+            eyeBlendShapes.eyeLookDownLeftIdx = new List<EyeBlendShape>();
+            eyeBlendShapes.eyeLookInLeftIdx = new List<EyeBlendShape>();
+            eyeBlendShapes.eyeLookOutLeftIdx = new List<EyeBlendShape>();
+            eyeBlendShapes.eyeLookUpRightIdx = new List<EyeBlendShape>();
+            eyeBlendShapes.eyeLookDownRightIdx = new List<EyeBlendShape>();
+            eyeBlendShapes.eyeLookInRightIdx = new List<EyeBlendShape>();
+            eyeBlendShapes.eyeLookOutRightIdx = new List<EyeBlendShape>();
+
+            // Mapping from blend shape name to target list
+            var blendShapeMapping = new Dictionary<string, List<EyeBlendShape>>
+            {
+                { "eyeLookUpLeft", eyeBlendShapes.eyeLookUpLeftIdx },
+                { "eyeLookDownLeft", eyeBlendShapes.eyeLookDownLeftIdx },
+                { "eyeLookInLeft", eyeBlendShapes.eyeLookInLeftIdx },
+                { "eyeLookOutLeft", eyeBlendShapes.eyeLookOutLeftIdx },
+                { "eyeLookUpRight", eyeBlendShapes.eyeLookUpRightIdx },
+                { "eyeLookDownRight", eyeBlendShapes.eyeLookDownRightIdx },
+                { "eyeLookInRight", eyeBlendShapes.eyeLookInRightIdx },
+                { "eyeLookOutRight", eyeBlendShapes.eyeLookOutRightIdx }
+            };
+
+            int foundCount = 0;
+
+            // Search for blend shapes in all head skinned mesh renderers
+            foreach (var skinnedMeshRenderer in headSkmr)
+            {
+                if (skinnedMeshRenderer == null || skinnedMeshRenderer.sharedMesh == null)
+                    continue;
+
+                for (int i = 0; i < skinnedMeshRenderer.sharedMesh.blendShapeCount; i++)
+                {
+                    string blendShapeName = skinnedMeshRenderer.sharedMesh.GetBlendShapeName(i);
+
+                    if (blendShapeMapping.TryGetValue(blendShapeName, out var targetList))
+                    {
+                        targetList.Add(new EyeBlendShape
+                        {
+                            skinnedMeshRenderer = skinnedMeshRenderer,
+                            blendShapeName = blendShapeName,
+                            blendShapeIdx = i,
+                            scale = 1.0f
+                        });
+                        foundCount++;
+                    }
+                }
+            }
+
+            // Set default global scale
+            eyeBlendShapes.globalScale = 1.0f;
+
+            if (foundCount > 0)
+            {
+                Debug.Log($"{LogPrefix} Auto-found {foundCount} eye look blend shapes!");
             }
             else
             {
-                EditorGUILayout.HelpBox("Twisted eye bone detected (bone local +Z is not the gaze axis). 'Auto-correct Eye Aim Axis' is OFF, so horizontal (left/right) eye tracking will NOT work.", MessageType.Warning);
-                if (GUILayout.Button("Enable Auto-correct Eye Aim Axis"))
-                {
-                    autoDetectEyeAimAxisProp.boolValue = true;
-                    serializedObject.ApplyModifiedProperties();
-                }
+                Debug.LogWarning($"{LogPrefix} No eye look blend shapes found. Make sure your avatar has eyeLookUp/Down/In/OutLeft/Right blend shapes.");
             }
-        }
-
-        private static bool IsBoneTwisted(Transform bone, Vector3 gazeWorld)
-        {
-            if (bone == null) return false;
-            Vector3 gazeLocal = (Quaternion.Inverse(bone.rotation) * gazeWorld).normalized;
-            return Vector3.Dot(gazeLocal, Vector3.forward) < 0.99f;
-        }
-
-        /// <summary>
-        /// True when either assigned eye bone has a mirrored/reflected (left-handed) basis
-        /// (matrix determinant &lt; 0) — which MultiAimConstraint cannot aim. Edit-mode preview only.
-        /// </summary>
-        private bool AnyEyeBoneReflected()
-        {
-            var l = lookLeftEyeBallProp.objectReferenceValue as Transform;
-            var r = lookRightEyeBallProp.objectReferenceValue as Transform;
-            return (l != null && l.localToWorldMatrix.determinant < 0f) ||
-                   (r != null && r.localToWorldMatrix.determinant < 0f);
         }
     }
 }
-#endif

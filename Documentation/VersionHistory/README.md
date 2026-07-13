@@ -4,7 +4,8 @@
 
 ## 버전 목록
 
-- [v0.4.0](v0.4.0.md) - 2026-07-10 - Look Target 통합 캘리브레이션 조준 (ACS v0.4.0 포팅) (현재)
+- [v0.5.0](v0.5.0.md) - 2026-07-13 - Animation Rigging 의존성 제거 (룩타겟 직접구동 전환, ACS v0.5.0 미러링) (현재)
+- [v0.4.0](v0.4.0.md) - 2026-07-10 - Look Target 통합 캘리브레이션 조준 (ACS v0.4.0 포팅)
 - [v0.3.4](v0.3.4.md) - 2026-06-29 - 미러(반사) 눈 본 Look Target 추적 복구 (Universal Eye-Aim)
 - [v0.3.3](v0.3.3.md) - 2026-06-26 - Look Target 눈 좌우(yaw) 추적 복구
 - [v0.3.2](v0.3.2.md) - 2026-06-26 - Look Target 머리/눈 각도 제한 Inspector 노출

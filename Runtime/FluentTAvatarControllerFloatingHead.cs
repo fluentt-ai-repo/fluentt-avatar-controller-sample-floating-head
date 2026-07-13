@@ -3,9 +3,6 @@ using FluentT.Talkmotion;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
-using UnityEngine.Animations.Rigging;
-#endif
 using UnityEngine.Serialization;
 
 namespace FluentT.Avatar.SampleFloatingHead
@@ -41,12 +38,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] private bool enableLookTarget = false;
         [SerializeField] private Transform lookTarget;
 
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
-        // Animation Rigging Multi-Aim Constraints
-        [SerializeField] private MultiAimConstraint headAimConstraint;
-        [SerializeField] private MultiAimConstraint leftEyeAimConstraint;
-        [SerializeField] private MultiAimConstraint rightEyeAimConstraint;
-#endif
 
         // Look Target Transforms
         [SerializeField] private Transform lookHead;
@@ -320,7 +311,6 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         private void LateUpdate()
         {
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
             if (enableLookTarget && lookTargetController != null)
             {
                 UpdateLookTarget();
@@ -343,7 +333,6 @@ namespace FluentT.Avatar.SampleFloatingHead
                 // avatar or target moves.
                 ResetLookAimSmoothing();
             }
-#endif
         }
 
         /// <summary>
@@ -352,12 +341,10 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         private void OnAvatarLateUpdateCompleted()
         {
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
             if (enableLookTarget && lookTargetController != null)
             {
                 LateUpdateLookTarget();
             }
-#endif
 
             // Eye blink is handled by TMAnimationComponent on dedicated layer
         }

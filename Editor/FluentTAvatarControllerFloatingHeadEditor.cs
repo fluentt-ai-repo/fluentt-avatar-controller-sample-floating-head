@@ -61,11 +61,6 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private SerializedProperty lookTargetProp;
         private SerializedProperty headSkinnedMeshRenderersProp;
         private SerializedProperty lookHeadProp;
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
-        private SerializedProperty headAimConstraintProp;
-        private SerializedProperty leftEyeAimConstraintProp;
-        private SerializedProperty rightEyeAimConstraintProp;
-#endif
         private SerializedProperty lookLeftEyeBallProp;
         private SerializedProperty lookRightEyeBallProp;
         private SerializedProperty idleLookSettingsProp;
@@ -79,9 +74,6 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private SerializedProperty eyeAngleLimitProp;
         private SerializedProperty eyeAngleLimitThresholdProp;
         private SerializedProperty eyeTransformAngleLimitProp;
-        private SerializedProperty autoDetectEyeAimAxisProp;
-        private SerializedProperty eyeAimModeProp;
-        private SerializedProperty headAimModeProp;
         private SerializedProperty eyeSpeedProp;
         private SerializedProperty showTargetGizmosProp;
         private SerializedProperty actualTargetGizmoSizeProp;
@@ -130,11 +122,6 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             lookTargetProp = serializedObject.FindProperty("lookTarget");
             headSkinnedMeshRenderersProp = serializedObject.FindProperty("headSkinnedMeshRenderers");
             lookHeadProp = serializedObject.FindProperty("lookHead");
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
-            headAimConstraintProp = serializedObject.FindProperty("headAimConstraint");
-            leftEyeAimConstraintProp = serializedObject.FindProperty("leftEyeAimConstraint");
-            rightEyeAimConstraintProp = serializedObject.FindProperty("rightEyeAimConstraint");
-#endif
             lookLeftEyeBallProp = serializedObject.FindProperty("lookLeftEyeBall");
             lookRightEyeBallProp = serializedObject.FindProperty("lookRightEyeBall");
             idleLookSettingsProp = serializedObject.FindProperty("idleLookSettings");
@@ -148,9 +135,6 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             eyeAngleLimitProp = serializedObject.FindProperty("eyeAngleLimit");
             eyeAngleLimitThresholdProp = serializedObject.FindProperty("eyeAngleLimitThreshold");
             eyeTransformAngleLimitProp = serializedObject.FindProperty("eyeTransformAngleLimit");
-            autoDetectEyeAimAxisProp = serializedObject.FindProperty("autoDetectEyeAimAxis");
-            eyeAimModeProp = serializedObject.FindProperty("eyeAimMode");
-            headAimModeProp = serializedObject.FindProperty("headAimMode");
             eyeSpeedProp = serializedObject.FindProperty("eyeSpeed");
             showTargetGizmosProp = serializedObject.FindProperty("showTargetGizmos");
             actualTargetGizmoSizeProp = serializedObject.FindProperty("actualTargetGizmoSize");
@@ -223,14 +207,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
 
             if (DrawAccordionHeader("Look Target", SECTION_LOOK_TARGET))
             {
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
                 DrawLookTargetSettings();
-#else
-                EditorGUILayout.HelpBox(
-                    "Look Target 기능을 사용하려면 Animation Rigging 패키지가 필요합니다.\n\n" +
-                    "설치 방법: Window > Package Manager > Unity Registry에서 'Animation Rigging'을 검색하여 설치해 주세요.",
-                    MessageType.Warning);
-#endif
             }
 
             if (DrawAccordionHeader("Text Emotion Detection", SECTION_TEXT_EMOTION))
@@ -267,49 +244,6 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         {
             var field = obj.GetType().GetField(fieldName, PrivateInstance);
             field?.SetValue(obj, value);
-        }
-
-        /// <summary>
-        /// Find or create VirtualTargets container in scene root
-        /// </summary>
-        private GameObject FindOrCreateVirtualTargetsContainer()
-        {
-            GameObject container = GameObject.Find("VirtualTargets");
-            if (container == null)
-            {
-                container = new GameObject("VirtualTargets");
-                Debug.Log($"{LogPrefix} Created VirtualTargets container");
-            }
-            return container;
-        }
-
-        /// <summary>
-        /// Find or create avatar-specific virtual target group
-        /// </summary>
-        private Transform FindOrCreateAvatarVirtualTargetGroup(GameObject avatar)
-        {
-            GameObject container = FindOrCreateVirtualTargetsContainer();
-            string groupName = $"{avatar.name}_VirtualTargets";
-            Transform group = container.transform.Find(groupName);
-            if (group == null)
-            {
-                GameObject groupGO = new GameObject(groupName);
-                group = groupGO.transform;
-                group.SetParent(container.transform);
-                Debug.Log($"{LogPrefix} Created {groupName} group");
-            }
-            return group;
-        }
-
-        /// <summary>
-        /// Find avatar virtual target group (returns null if not found)
-        /// </summary>
-        private Transform FindAvatarVirtualTargetGroup(GameObject avatar)
-        {
-            GameObject container = GameObject.Find("VirtualTargets");
-            if (container == null)
-                return null;
-            return container.transform.Find($"{avatar.name}_VirtualTargets");
         }
 
         /// <summary>
