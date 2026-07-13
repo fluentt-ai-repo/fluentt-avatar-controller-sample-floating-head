@@ -84,8 +84,9 @@ namespace FluentT.Avatar.SampleFloatingHead
         private Quaternion initialLeftEyeLocalRotation;
         private Quaternion initialRightEyeLocalRotation;
 
-        // BlendShape state tracking
-        private Dictionary<string, float> eyeBlendShapePrevValues = new Dictionary<string, float>();
+        // BlendShape state tracking. The per-shape smoothing value lives on each EyeBlendShape entry
+        // (see LookTargetTypes.cs) — it used to sit in a Dictionary<string, float> whose key was rebuilt
+        // by string interpolation on every lookup, allocating on every frame.
         private bool prevEnableEyeControl = false;
         private bool isEyeFadingOut = false;
 
