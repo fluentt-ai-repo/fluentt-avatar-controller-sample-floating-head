@@ -5,7 +5,6 @@ using UnityEngine;
 
 namespace FluentT.Avatar.SampleFloatingHead
 {
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
     /// <summary>
     /// BlendShape eye control: initialization, calculation, and application
     /// </summary>
@@ -285,5 +284,4 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         #endregion
     }
-#endif
 }

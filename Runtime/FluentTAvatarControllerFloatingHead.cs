@@ -320,7 +320,6 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         private void LateUpdate()
         {
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
             if (enableLookTarget && lookTargetController != null)
             {
                 UpdateLookTarget();
@@ -343,7 +342,6 @@ namespace FluentT.Avatar.SampleFloatingHead
                 // avatar or target moves.
                 ResetLookAimSmoothing();
             }
-#endif
         }
 
         /// <summary>
@@ -352,12 +350,10 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         private void OnAvatarLateUpdateCompleted()
         {
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
             if (enableLookTarget && lookTargetController != null)
             {
                 LateUpdateLookTarget();
             }
-#endif
 
             // Eye blink is handled by TMAnimationComponent on dedicated layer
         }

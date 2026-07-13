@@ -63,7 +63,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] private Color headVirtualTargetColor = Color.red;
         [SerializeField] private Color eyeVirtualTargetColor = Color.blue;
 
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
         // Look target controller
         private LookTargetController lookTargetController;
 
@@ -94,6 +93,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Control HeadTracking and EyeTracking GameObjects based on enable flags
             UpdateTrackingGameObjectStates();
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
             // Validate Multi-Aim Constraints (only required when head control uses the constraint path;
             // DirectCalibrated drives the head bone directly and needs no constraint)
             if (enableHeadControl && headAimMode == EHeadAimMode.Constraint && headAimConstraint == null)
@@ -107,15 +107,18 @@ namespace FluentT.Avatar.SampleFloatingHead
             {
                 Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Eye control enabled but Left/Right Eye Multi-Aim Constraints not assigned!");
             }
+#endif
 
             // Initialize LookTargetController
             lookTargetController = new LookTargetController();
 
             // Configure LookTargetController
             lookTargetController.SetAvatarRoot(transform);
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
             lookTargetController.SetHeadAimConstraint(headAimConstraint);
             lookTargetController.SetLeftEyeAimConstraint(leftEyeAimConstraint);
             lookTargetController.SetRightEyeAimConstraint(rightEyeAimConstraint);
+#endif
             lookTargetController.SetTransforms(lookHead, lookLeftEyeBall, lookRightEyeBall);
             lookTargetController.SetLookTarget(lookTarget);
 
@@ -162,10 +165,12 @@ namespace FluentT.Avatar.SampleFloatingHead
                 }
             }
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
             // Detect each eye/head bone's real gaze axis and configure the MultiAimConstraint aim axes
             // (handles "twisted" rigs), then rebuild the rig so the new axes take effect.
             if (autoDetectEyeAimAxis)
                 AutoConfigureLookAimAxes();
+#endif
 
             // Enable
             lookTargetController.Enable();
@@ -326,6 +331,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
         }
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
         // Bone is considered "aligned" (no twist) when its local +Z is within this dot of the gaze direction.
         private const float AimAxisAlignedThreshold = 0.99f;
 
@@ -449,6 +455,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             snapped = v.z >= 0f ? Vector3.forward : Vector3.back;
             return v.z >= 0f ? MultiAimConstraintData.Axis.Z : MultiAimConstraintData.Axis.Z_NEG;
         }
+#endif
 
         // ── Universal direct eye-aim solver (handles mirrored / any-scale eye bones) ──────────────────
         // MultiAimConstraint cannot aim a mirrored (negative-scale / reflected) eye bone: its world-up
@@ -564,10 +571,12 @@ namespace FluentT.Avatar.SampleFloatingHead
             // (e.g. SetupLookTargetRigAtRuntime mid-gameplay) reuse the original capture.
             CaptureLookAimBindPose();
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
             // Eyes are driven directly in LateUpdate; silence the rig constraints so the PlayableGraph
             // does not also write eye rotations (which are wrong for mirrored bones).
             if (leftEyeAimConstraint != null) leftEyeAimConstraint.weight = 0f;
             if (rightEyeAimConstraint != null) rightEyeAimConstraint.weight = 0f;
+#endif
 
             // Force the first drive to seed its smoothed gaze from the (bind/animated) eye pose.
             _eyeAimDrivingLastFrame = false;
@@ -675,10 +684,12 @@ namespace FluentT.Avatar.SampleFloatingHead
             ResetLookAimCorrection();
             _lastCleanHeadLocalRotation = lookHead.localRotation;
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
             // The head is driven directly in LateUpdate; silence the rig constraint so the PlayableGraph
             // does not also aim the (possibly tilted) bone +Z axis.
             if (headAimConstraint != null)
                 headAimConstraint.weight = 0f;
+#endif
 
             _headAimCalibrated = _lookAimBindPoseCaptured;
             if (enableVerboseLogging)
@@ -718,8 +729,10 @@ namespace FluentT.Avatar.SampleFloatingHead
             {
                 if (!_headAimCalibrated && lookHead != null)
                     CalibrateHeadAim(); // reuses the bind-pose capture; safe mid-play
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
                 if (headAimConstraint != null && headAimConstraint.weight != 0f)
                     headAimConstraint.weight = 0f;
+#endif
             }
             else
             {
@@ -732,8 +745,10 @@ namespace FluentT.Avatar.SampleFloatingHead
                     if (lookTargetController != null)
                         lookTargetController.SnapHeadVirtualTargetToTarget();
                 }
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
                 if (headAimConstraint != null && headAimConstraint.weight != 1f)
                     headAimConstraint.weight = 1f;
+#endif
             }
         }
 
@@ -872,8 +887,10 @@ namespace FluentT.Avatar.SampleFloatingHead
             // ownership flags below are correct for this frame.
             SyncHeadAimMode();
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
             // Sync head/eye MultiAimConstraint angle limits with inspector values (immediate reflect)
             ApplyAngleLimitsToConstraints();
+#endif
 
             // Tell the controller which bones the direct solver owns, so it can skip the dead per-frame
             // virtual-target Lerps (a constraint at weight 0 reads nothing).
@@ -981,6 +998,7 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         #region Runtime Rig Setup/Destroy
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
         /// <summary>
         /// Runtime version of SetupLookTargetRig.
         /// Creates Animation Rigging hierarchy (RigBuilder, Rig, MultiAimConstraints, VirtualTargets) at runtime
@@ -1322,11 +1340,15 @@ namespace FluentT.Avatar.SampleFloatingHead
             rigBuilder.Build();
             Debug.Log($"[FluentTAvatarControllerFloatingHead] RigBuilder.Build() called — {layerCount} layer(s)");
         }
+#endif
 
         /// <summary>
         /// Ensure virtual target references exist. Finds existing ones or auto-creates them
         /// for runtime Instantiate scenarios where VirtualTargets don't exist in the scene.
-        /// Also updates constraint source objects and rebuilds rig if new targets were created.
+        /// This is the ONLY virtual-target creation path taken by a normal init: the eye virtual
+        /// target it produces is what the BlendWeightFluentt strategy aims along, and it carries the
+        /// per-frame smoothing and the 0.5m proximity clamp. It must survive the rig removal —
+        /// only the constraint/RigBuilder tail below is rigging-specific.
         /// </summary>
         private void EnsureVirtualTargetRefs()
         {
@@ -1404,6 +1426,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 }
             }
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
             // Update constraint source objects and rebuild rig if new virtual targets were created
             if (createdNew)
             {
@@ -1415,8 +1438,12 @@ namespace FluentT.Avatar.SampleFloatingHead
                     if (enableVerboseLogging) Debug.Log("[FluentTAvatarControllerFloatingHead] VirtualTargets auto-created and rig rebuilt for runtime Instantiate");
                 }
             }
+#else
+            _ = createdNew;
+#endif
         }
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
         /// <summary>
         /// Update constraint source objects to point at current virtual target references.
         /// Called after auto-creating VirtualTargets at runtime.
@@ -1523,6 +1550,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 }
             }
         }
+#endif
 
         /// <summary>
         /// Helper: Find or create the VirtualTargets container and avatar group at runtime
@@ -1550,35 +1578,5 @@ namespace FluentT.Avatar.SampleFloatingHead
         }
 
         #endregion
-#else
-        // Animation Rigging not installed - stub implementations
-        private void InitializeLookTarget()
-        {
-            if (enableLookTarget)
-            {
-                Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Animation Rigging package is not installed. Look Target feature is disabled. Install 'com.unity.animation.rigging' via Package Manager.");
-                enableLookTarget = false;
-            }
-        }
-        public void FindLookTargetTransforms() { }
-        private void UpdateLookTarget() { }
-        private void LateUpdateLookTarget() { }
-        private void ResetLookAimSmoothing() { }
-        public void SetLookTarget(Transform target) { lookTarget = target; }
-        public void SetLookTargetEnabled(bool enabled) { enableLookTarget = enabled; }
-        private void CleanupVirtualTargets() { }
-        public void SetupLookTargetRigAtRuntime()
-        {
-            Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Animation Rigging package is not installed. Cannot setup rig at runtime.");
-        }
-        public void DestroyLookTargetRigAtRuntime()
-        {
-            Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Animation Rigging package is not installed. Cannot destroy rig at runtime.");
-        }
-        public void RebuildRig()
-        {
-            Debug.LogWarning("[FluentTAvatarControllerFloatingHead] Animation Rigging package is not installed. Cannot rebuild rig.");
-        }
-#endif
     }
 }

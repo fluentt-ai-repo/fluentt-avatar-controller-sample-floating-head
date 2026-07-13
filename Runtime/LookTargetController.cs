@@ -7,7 +7,6 @@ using UnityEngine.Animations.Rigging;
 
 namespace FluentT.Avatar.SampleFloatingHead
 {
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
     /// <summary>
     /// Simple look target controller without timeline dependency
     /// Manages virtual targets and constraints for smooth look-at behavior
@@ -16,10 +15,12 @@ namespace FluentT.Avatar.SampleFloatingHead
     [System.Serializable]
     public partial class LookTargetController
     {
-        // Animation Rigging Multi-Aim Constraints (Transform strategy)
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
+        // Animation Rigging Multi-Aim Constraints (legacy Transform strategy path)
         private MultiAimConstraint headAimConstraint;
         private MultiAimConstraint leftEyeAimConstraint;
         private MultiAimConstraint rightEyeAimConstraint;
+#endif
 
         // Actual look target
         private Transform target;
@@ -90,6 +91,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             avatarRoot = root;
         }
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
         /// <summary>
         /// Set the Multi-Aim Constraint for head tracking
         /// </summary>
@@ -113,6 +115,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             rightEyeAimConstraint = constraint;
         }
+#endif
 
         /// <summary>
         /// Set base transforms (head and eyes)
@@ -202,6 +205,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Use externally-set avatarRoot first (most reliable)
             Transform root = avatarRoot;
 
+#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
             // Fallback: walk up from constraint hierarchy
             if (root == null && headAimConstraint != null)
             {
@@ -212,6 +216,7 @@ namespace FluentT.Avatar.SampleFloatingHead
             {
                 root = leftEyeAimConstraint.transform.parent?.parent;
             }
+#endif
 
             // Fallback: walk up from head bone to find Animator root
             if (root == null && head != null)
@@ -412,5 +417,4 @@ namespace FluentT.Avatar.SampleFloatingHead
             enableEyeControl = false;
         }
     }
-#endif
 }

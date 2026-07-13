@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace FluentT.Avatar.SampleFloatingHead
 {
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
     /// <summary>
     /// Eye Transform/Corrected mode virtual target updates
     /// </summary>
@@ -87,5 +86,4 @@ namespace FluentT.Avatar.SampleFloatingHead
             virtualTarget.position = Vector3.Lerp(virtualTarget.position, targetPos, eyeSpeed * deltaTime);
         }
     }
-#endif
 }
