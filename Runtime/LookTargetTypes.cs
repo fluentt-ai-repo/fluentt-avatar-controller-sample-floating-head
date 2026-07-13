@@ -51,6 +51,13 @@ namespace FluentT.Avatar.SampleFloatingHead
         public string blendShapeName;
         public int blendShapeIdx;
         public float scale;
+
+        // Per-frame smoothing state, held on the entry itself. It used to live in a
+        // Dictionary<string, float> keyed by an interpolated "$"{prefix}_{instanceId}_{index}""
+        // string that was rebuilt on every lookup — 16 string allocations per avatar per frame.
+        // Runtime state, never serialized: it is seeded from the renderer's current weight.
+        [NonSerialized] public float prevValue;
+        [NonSerialized] public bool prevInitialized;
     }
 
     /// <summary>

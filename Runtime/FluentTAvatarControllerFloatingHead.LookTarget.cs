@@ -47,13 +47,6 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         private void InitializeLookTarget()
         {
-            // Control TargetTracking GameObject based on enableLookTarget
-            Transform targetTracking = transform.Find("TargetTracking");
-            if (targetTracking != null)
-            {
-                targetTracking.gameObject.SetActive(enableLookTarget);
-            }
-
             if (!enableLookTarget)
                 return;
 
@@ -66,9 +59,6 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Capture bind-pose reference data for the direct-aim solvers before anything can animate
             // the bones (idempotent — a later re-init reuses the first capture).
             CaptureLookAimBindPose();
-
-            // Control HeadTracking and EyeTracking GameObjects based on enable flags
-            UpdateTrackingGameObjectStates();
 
 
             // Initialize LookTargetController
@@ -241,43 +231,12 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
         }
 
-        /// <summary>
-        /// Update tracking GameObject states based on enable flags
-        /// Note: We keep tracking GameObjects active for smooth weight transition.
-        /// Only disable when the feature itself (enableLookTarget) is disabled.
-        /// Weight transition handles the actual enable/disable smoothly via constraint weights.
-        /// </summary>
-        private void UpdateTrackingGameObjectStates()
-        {
-            Transform targetTracking = transform.Find("TargetTracking");
-            if (targetTracking == null)
-                return;
-
-            // HeadTracking is always active when Look Target is enabled
-            // Weight transition handles smooth enable/disable via constraint weight
-            Transform headTracking = targetTracking.Find("HeadTracking");
-            if (headTracking != null)
-            {
-                headTracking.gameObject.SetActive(true);
-            }
-
-            // Control LeftEyeTracking and RightEyeTracking based on strategy only
-            // BlendWeightFluentt doesn't need eye tracking GameObjects at all
-            Transform leftEyeTracking = targetTracking.Find("LeftEyeTracking");
-            Transform rightEyeTracking = targetTracking.Find("RightEyeTracking");
-
-            bool useTransformEyeTracking = eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt;
-
-            if (leftEyeTracking != null)
-            {
-                leftEyeTracking.gameObject.SetActive(useTransformEyeTracking);
-            }
-
-            if (rightEyeTracking != null)
-            {
-                rightEyeTracking.gameObject.SetActive(useTransformEyeTracking);
-            }
-        }
+        // UpdateTrackingGameObjectStates() and the transform.Find("TargetTracking") calls that guarded it
+        // were removed in v0.6.2. TargetTracking was the Animation Rigging holder: a child of the avatar
+        // root carrying the Rig and its MultiAim constraints, whose child HeadTracking / LeftEyeTracking /
+        // RightEyeTracking objects this toggled. v0.5.0 deleted the rigging and stripped the scaffolding
+        // from every prefab and scene, so the Find never matched again and the whole thing was an
+        // unreachable no-op that still ran twice per frame per avatar.
 
 
         // ── Universal direct eye-aim solver (handles mirrored / any-scale eye bones) ──────────────────
@@ -630,15 +589,6 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
 
             // Control TargetTracking GameObject based on enableLookTarget
-            Transform targetTracking = transform.Find("TargetTracking");
-            if (targetTracking != null)
-            {
-                targetTracking.gameObject.SetActive(enableLookTarget);
-            }
-
-            // Update HeadTracking and EyeTracking states based on enable flags
-            UpdateTrackingGameObjectStates();
-
             if (lookTargetController == null)
                 return;
 
@@ -723,48 +673,18 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             enableLookTarget = enabled;
 
-            // Control TargetTracking GameObject
-            Transform targetTracking = transform.Find("TargetTracking");
-            if (targetTracking != null)
-            {
-                targetTracking.gameObject.SetActive(enabled);
-            }
+            if (lookTargetController == null)
+                return;
 
-            if (lookTargetController != null)
-            {
-                if (enabled)
-                {
-                    lookTargetController.Enable();
-                    UpdateTrackingGameObjectStates();
-                }
-                else
-                {
-                    lookTargetController.Disable();
-                }
-            }
+            if (enabled)
+                lookTargetController.Enable();
+            else
+                lookTargetController.Disable();
         }
 
-        /// <summary>
-        /// Clean up virtual targets when avatar is destroyed
-        /// </summary>
-        private void CleanupVirtualTargets()
-        {
-            // Delete avatar-specific virtual target group from VirtualTargets container.
-            // Strip "(Clone)" to match the name the group was CREATED with
-            // (RuntimeFindOrCreateAvatarVirtualTargetGroup / LookTargetController.FindVirtualTargets both
-            // strip it); without this, a runtime-Instantiated avatar leaks its group on destroy.
-            GameObject virtualTargetsContainer = GameObject.Find("VirtualTargets");
-            if (virtualTargetsContainer != null)
-            {
-                string avatarGroupName = $"{gameObject.name.Replace("(Clone)", "").Trim()}_VirtualTargets";
-                Transform avatarVirtualTargetGroup = virtualTargetsContainer.transform.Find(avatarGroupName);
-                if (avatarVirtualTargetGroup != null)
-                {
-                    Destroy(avatarVirtualTargetGroup.gameObject);
-                    Debug.Log($"[FluentTAvatarControllerFloatingHead] Deleted {avatarGroupName} group at runtime");
-                }
-            }
-        }
+        // CleanupVirtualTargets() was removed together with the scene-root container: the virtual targets
+        // now live under this avatar and Unity destroys them along with it. Manual cleanup would also
+        // throw ("Destroy may not be called from edit mode") if the avatar is deleted outside play mode.
 
         #endregion
 
@@ -781,24 +701,32 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         private void EnsureVirtualTargetRefs()
         {
-            // Skip if all needed refs are already set
+            // Skip if every ref the enabled features actually need is already set. A disabled feature
+            // needs no ref: gating on hasHeadRef unconditionally used to make this check unsatisfiable
+            // for avatars with enableHeadControl off (every FloatingHead prefab ships that way, so they
+            // never get a head ref), and the container was rebuilt on every init even when the eye refs
+            // were already wired up.
             bool hasHeadRef = headVirtualTargetRef != null;
             bool hasEyeRef = eyeVirtualTargetRef != null;
             bool hasCorrectedRefs = leftEyeVirtualTargetRef != null && rightEyeVirtualTargetRef != null;
 
-            if (hasHeadRef && (eyeControlStrategy == EEyeControlStrategy.TransformCorrected ? hasCorrectedRefs : hasEyeRef))
+            bool headSatisfied = !enableHeadControl || hasHeadRef;
+            bool eyeSatisfied = !enableEyeControl ||
+                (eyeControlStrategy == EEyeControlStrategy.TransformCorrected ? hasCorrectedRefs : hasEyeRef);
+
+            if (headSatisfied && eyeSatisfied)
                 return;
 
-            // Find or create VirtualTargets group
+            // Find or create the virtual target container under this avatar
             Transform group = RuntimeFindOrCreateAvatarVirtualTargetGroup();
 
             // Head virtual target
             if (headVirtualTargetRef == null && enableHeadControl)
             {
-                headVirtualTargetRef = group.Find("HeadVirtualTarget");
+                headVirtualTargetRef = group.Find(LookTargetController.HeadAnchorName);
                 if (headVirtualTargetRef == null && lookHead != null)
                 {
-                    var go = new GameObject("HeadVirtualTarget");
+                    var go = new GameObject(LookTargetController.HeadAnchorName);
                     headVirtualTargetRef = go.transform;
                     headVirtualTargetRef.SetParent(group);
                     headVirtualTargetRef.position = lookHead.position + lookHead.forward * 2f;
@@ -812,10 +740,10 @@ namespace FluentT.Avatar.SampleFloatingHead
                 {
                     if (leftEyeVirtualTargetRef == null)
                     {
-                        leftEyeVirtualTargetRef = group.Find("LeftEyeVirtualTarget");
+                        leftEyeVirtualTargetRef = group.Find(LookTargetController.LeftEyeAnchorName);
                         if (leftEyeVirtualTargetRef == null && lookLeftEyeBall != null && lookHead != null)
                         {
-                            var go = new GameObject("LeftEyeVirtualTarget");
+                            var go = new GameObject(LookTargetController.LeftEyeAnchorName);
                             leftEyeVirtualTargetRef = go.transform;
                             leftEyeVirtualTargetRef.SetParent(group);
                             leftEyeVirtualTargetRef.position = lookLeftEyeBall.position + lookHead.forward * 2f;
@@ -823,10 +751,10 @@ namespace FluentT.Avatar.SampleFloatingHead
                     }
                     if (rightEyeVirtualTargetRef == null)
                     {
-                        rightEyeVirtualTargetRef = group.Find("RightEyeVirtualTarget");
+                        rightEyeVirtualTargetRef = group.Find(LookTargetController.RightEyeAnchorName);
                         if (rightEyeVirtualTargetRef == null && lookRightEyeBall != null && lookHead != null)
                         {
-                            var go = new GameObject("RightEyeVirtualTarget");
+                            var go = new GameObject(LookTargetController.RightEyeAnchorName);
                             rightEyeVirtualTargetRef = go.transform;
                             rightEyeVirtualTargetRef.SetParent(group);
                             rightEyeVirtualTargetRef.position = lookRightEyeBall.position + lookHead.forward * 2f;
@@ -837,10 +765,10 @@ namespace FluentT.Avatar.SampleFloatingHead
                 {
                     if (eyeVirtualTargetRef == null)
                     {
-                        eyeVirtualTargetRef = group.Find("EyeVirtualTarget");
+                        eyeVirtualTargetRef = group.Find(LookTargetController.EyeAnchorName);
                         if (eyeVirtualTargetRef == null && lookLeftEyeBall != null && lookRightEyeBall != null && lookHead != null)
                         {
-                            var go = new GameObject("EyeVirtualTarget");
+                            var go = new GameObject(LookTargetController.EyeAnchorName);
                             eyeVirtualTargetRef = go.transform;
                             eyeVirtualTargetRef.SetParent(group);
                             Vector3 eyeCenter = (lookLeftEyeBall.position + lookRightEyeBall.position) * 0.5f;
@@ -854,27 +782,40 @@ namespace FluentT.Avatar.SampleFloatingHead
 
 
         /// <summary>
-        /// Helper: Find or create the VirtualTargets container and avatar group at runtime
+        /// Helper: Find or create this avatar's virtual target container at runtime.
         /// </summary>
+        /// <remarks>
+        /// The container is a DIRECT CHILD of the avatar root, never of a bone. Two rules make this safe,
+        /// and breaking either one is what corrupts the rig:
+        ///   - Leaf only, no components. Adding a leaf leaves SkinnedMeshRenderer.bones (a Transform
+        ///     reference array) and every authored clip's binding path untouched. Re-parenting an existing
+        ///     bone or mesh node under it would not.
+        ///   - Never under an animated bone. The virtual target is the smoothing proxy the head/eye aim
+        ///     converges through, so parenting it to the head would let the head drag its own aim target.
+        /// It used to be created at the scene root because the old MultiAimConstraint required its source
+        /// objects to sit outside the rig. That rigging was removed in v0.5.0, and owning the container
+        /// removes the scene-wide GameObject.Find + "(Clone)" name matching that leaked and cross-wired
+        /// groups between avatars.
+        /// </remarks>
         private Transform RuntimeFindOrCreateAvatarVirtualTargetGroup()
         {
-            GameObject container = GameObject.Find("VirtualTargets");
-            if (container == null)
-            {
-                container = new GameObject("VirtualTargets");
-                Debug.Log("[FluentTAvatarControllerFloatingHead] Created VirtualTargets container");
-            }
+            Transform group = transform.Find(LookTargetController.VirtualTargetsContainerName);
+            if (group != null)
+                return group;
 
-            string cleanName = gameObject.name.Replace("(Clone)", "").Trim();
-            string groupName = $"{cleanName}_VirtualTargets";
-            Transform group = container.transform.Find(groupName);
-            if (group == null)
-            {
-                var groupGO = new GameObject(groupName);
-                group = groupGO.transform;
-                group.SetParent(container.transform);
-                Debug.Log($"[FluentTAvatarControllerFloatingHead] Created {groupName} group");
-            }
+            var groupGO = new GameObject(LookTargetController.VirtualTargetsContainerName);
+            group = groupGO.transform;
+
+            // Identity local TRS. The anchors below are positioned in WORLD space right after SetParent,
+            // so any invertible parent matrix is fine — including the non-unit root scales and the 180deg
+            // yaw some avatars ship with.
+            group.SetParent(transform, worldPositionStays: false);
+            group.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            group.localScale = Vector3.one;
+
+            if (enableVerboseLogging)
+                Debug.Log($"[FluentTAvatarControllerFloatingHead] Created {LookTargetController.VirtualTargetsContainerName} under {gameObject.name}");
+
             return group;
         }
 
