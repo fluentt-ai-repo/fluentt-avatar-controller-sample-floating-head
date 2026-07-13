@@ -1,9 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
-using UnityEngine.Animations.Rigging;
-#endif
 
 namespace FluentT.Avatar.SampleFloatingHead
 {
@@ -15,12 +12,6 @@ namespace FluentT.Avatar.SampleFloatingHead
     [System.Serializable]
     public partial class LookTargetController
     {
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
-        // Animation Rigging Multi-Aim Constraints (legacy Transform strategy path)
-        private MultiAimConstraint headAimConstraint;
-        private MultiAimConstraint leftEyeAimConstraint;
-        private MultiAimConstraint rightEyeAimConstraint;
-#endif
 
         // Actual look target
         private Transform target;
@@ -91,31 +82,6 @@ namespace FluentT.Avatar.SampleFloatingHead
             avatarRoot = root;
         }
 
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
-        /// <summary>
-        /// Set the Multi-Aim Constraint for head tracking
-        /// </summary>
-        public void SetHeadAimConstraint(MultiAimConstraint constraint)
-        {
-            headAimConstraint = constraint;
-        }
-
-        /// <summary>
-        /// Set the Multi-Aim Constraint for left eye tracking
-        /// </summary>
-        public void SetLeftEyeAimConstraint(MultiAimConstraint constraint)
-        {
-            leftEyeAimConstraint = constraint;
-        }
-
-        /// <summary>
-        /// Set the Multi-Aim Constraint for right eye tracking
-        /// </summary>
-        public void SetRightEyeAimConstraint(MultiAimConstraint constraint)
-        {
-            rightEyeAimConstraint = constraint;
-        }
-#endif
 
         /// <summary>
         /// Set base transforms (head and eyes)
@@ -205,18 +171,6 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Use externally-set avatarRoot first (most reliable)
             Transform root = avatarRoot;
 
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
-            // Fallback: walk up from constraint hierarchy
-            if (root == null && headAimConstraint != null)
-            {
-                // HeadTracking -> TargetTracking -> Avatar
-                root = headAimConstraint.transform.parent?.parent;
-            }
-            if (root == null && leftEyeAimConstraint != null)
-            {
-                root = leftEyeAimConstraint.transform.parent?.parent;
-            }
-#endif
 
             // Fallback: walk up from head bone to find Animator root
             if (root == null && head != null)
@@ -380,23 +334,6 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
 
             headVirtualTarget.position = Vector3.Lerp(headVirtualTarget.position, targetPos, headSpeed * deltaTime);
-        }
-
-        /// <summary>
-        /// Place the head virtual target straight onto the look target, with no smoothing.
-        /// Called when the head is handed back from the direct-drive solver to its MultiAimConstraint:
-        /// the virtual target was not tracking while the solver owned the bone, so without this the
-        /// constraint would aim at a stale position and swing the head.
-        /// </summary>
-        public void SnapHeadVirtualTargetToTarget()
-        {
-            if (target == null || head == null || headVirtualTarget == null)
-                return;
-
-            Vector3 directionToTarget = target.position - head.position;
-            headVirtualTarget.position = directionToTarget.sqrMagnitude < minDistanceSqr
-                ? head.position + directionToTarget.normalized * minDistance
-                : target.position;
         }
 
         /// <summary>

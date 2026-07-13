@@ -3,9 +3,6 @@ using FluentT.Talkmotion;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
-using UnityEngine.Animations.Rigging;
-#endif
 using UnityEngine.Serialization;
 
 namespace FluentT.Avatar.SampleFloatingHead
@@ -41,12 +38,6 @@ namespace FluentT.Avatar.SampleFloatingHead
         [SerializeField] private bool enableLookTarget = false;
         [SerializeField] private Transform lookTarget;
 
-#if FLUENTT_ANIMATION_RIGGING_AVAILABLE
-        // Animation Rigging Multi-Aim Constraints
-        [SerializeField] private MultiAimConstraint headAimConstraint;
-        [SerializeField] private MultiAimConstraint leftEyeAimConstraint;
-        [SerializeField] private MultiAimConstraint rightEyeAimConstraint;
-#endif
 
         // Look Target Transforms
         [SerializeField] private Transform lookHead;
