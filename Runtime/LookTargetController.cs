@@ -93,6 +93,8 @@ namespace FluentT.Avatar.SampleFloatingHead
         // Look target settings
         private LookTargetSetting currentSetting;
         private Quaternion quatEyeVariance = Quaternion.identity;
+        private Vector2 prevEyeAngleVariance;
+        private bool eyeVarianceRolled;
 
         // Public getters for Gizmo visualization
         public Transform HeadVirtualTarget => headVirtualTarget;
@@ -144,14 +146,25 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             currentSetting = setting;
 
-            // Initialize eye angle variance
-            if (setting != null)
-            {
-                Vector3 angle = setting.eyeAngleVariance;
-                float randomPitch = UnityEngine.Random.Range(-angle.x, angle.x);
-                float randomYaw = UnityEngine.Random.Range(-angle.y, angle.y);
-                quatEyeVariance = Quaternion.Euler(randomPitch, randomYaw, 0);
-            }
+            if (setting == null)
+                return;
+
+            // Roll the gaze offset only when the variance value changes. The owner calls this every frame
+            // so inspector edits apply live, and the offset used to be re-rolled on every one of those
+            // calls — which made it per-frame noise rather than the one stable random offset it is meant
+            // to be (the eye Lerp then low-passes that noise back toward zero, so the feature does not
+            // work at all). Compare the value, not the setting reference: a reference guard would freeze
+            // the roll for the lifetime of the asset and swallow inspector edits.
+            if (eyeVarianceRolled && setting.eyeAngleVariance == prevEyeAngleVariance)
+                return;
+
+            prevEyeAngleVariance = setting.eyeAngleVariance;
+            eyeVarianceRolled = true;
+
+            Vector2 angle = setting.eyeAngleVariance;
+            float randomPitch = UnityEngine.Random.Range(-angle.x, angle.x);
+            float randomYaw = UnityEngine.Random.Range(-angle.y, angle.y);
+            quatEyeVariance = Quaternion.Euler(randomPitch, randomYaw, 0);
         }
 
         /// <summary>

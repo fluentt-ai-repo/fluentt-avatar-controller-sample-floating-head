@@ -47,13 +47,6 @@ namespace FluentT.Avatar.SampleFloatingHead
 
         private void InitializeLookTarget()
         {
-            // Control TargetTracking GameObject based on enableLookTarget
-            Transform targetTracking = transform.Find("TargetTracking");
-            if (targetTracking != null)
-            {
-                targetTracking.gameObject.SetActive(enableLookTarget);
-            }
-
             if (!enableLookTarget)
                 return;
 
@@ -66,9 +59,6 @@ namespace FluentT.Avatar.SampleFloatingHead
             // Capture bind-pose reference data for the direct-aim solvers before anything can animate
             // the bones (idempotent — a later re-init reuses the first capture).
             CaptureLookAimBindPose();
-
-            // Control HeadTracking and EyeTracking GameObjects based on enable flags
-            UpdateTrackingGameObjectStates();
 
 
             // Initialize LookTargetController
@@ -241,43 +231,12 @@ namespace FluentT.Avatar.SampleFloatingHead
             }
         }
 
-        /// <summary>
-        /// Update tracking GameObject states based on enable flags
-        /// Note: We keep tracking GameObjects active for smooth weight transition.
-        /// Only disable when the feature itself (enableLookTarget) is disabled.
-        /// Weight transition handles the actual enable/disable smoothly via constraint weights.
-        /// </summary>
-        private void UpdateTrackingGameObjectStates()
-        {
-            Transform targetTracking = transform.Find("TargetTracking");
-            if (targetTracking == null)
-                return;
-
-            // HeadTracking is always active when Look Target is enabled
-            // Weight transition handles smooth enable/disable via constraint weight
-            Transform headTracking = targetTracking.Find("HeadTracking");
-            if (headTracking != null)
-            {
-                headTracking.gameObject.SetActive(true);
-            }
-
-            // Control LeftEyeTracking and RightEyeTracking based on strategy only
-            // BlendWeightFluentt doesn't need eye tracking GameObjects at all
-            Transform leftEyeTracking = targetTracking.Find("LeftEyeTracking");
-            Transform rightEyeTracking = targetTracking.Find("RightEyeTracking");
-
-            bool useTransformEyeTracking = eyeControlStrategy != EEyeControlStrategy.BlendWeightFluentt;
-
-            if (leftEyeTracking != null)
-            {
-                leftEyeTracking.gameObject.SetActive(useTransformEyeTracking);
-            }
-
-            if (rightEyeTracking != null)
-            {
-                rightEyeTracking.gameObject.SetActive(useTransformEyeTracking);
-            }
-        }
+        // UpdateTrackingGameObjectStates() and the transform.Find("TargetTracking") calls that guarded it
+        // were removed in v0.6.2. TargetTracking was the Animation Rigging holder: a child of the avatar
+        // root carrying the Rig and its MultiAim constraints, whose child HeadTracking / LeftEyeTracking /
+        // RightEyeTracking objects this toggled. v0.5.0 deleted the rigging and stripped the scaffolding
+        // from every prefab and scene, so the Find never matched again and the whole thing was an
+        // unreachable no-op that still ran twice per frame per avatar.
 
 
         // ── Universal direct eye-aim solver (handles mirrored / any-scale eye bones) ──────────────────
@@ -630,15 +589,6 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
 
             // Control TargetTracking GameObject based on enableLookTarget
-            Transform targetTracking = transform.Find("TargetTracking");
-            if (targetTracking != null)
-            {
-                targetTracking.gameObject.SetActive(enableLookTarget);
-            }
-
-            // Update HeadTracking and EyeTracking states based on enable flags
-            UpdateTrackingGameObjectStates();
-
             if (lookTargetController == null)
                 return;
 
@@ -723,25 +673,13 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             enableLookTarget = enabled;
 
-            // Control TargetTracking GameObject
-            Transform targetTracking = transform.Find("TargetTracking");
-            if (targetTracking != null)
-            {
-                targetTracking.gameObject.SetActive(enabled);
-            }
+            if (lookTargetController == null)
+                return;
 
-            if (lookTargetController != null)
-            {
-                if (enabled)
-                {
-                    lookTargetController.Enable();
-                    UpdateTrackingGameObjectStates();
-                }
-                else
-                {
-                    lookTargetController.Disable();
-                }
-            }
+            if (enabled)
+                lookTargetController.Enable();
+            else
+                lookTargetController.Disable();
         }
 
         // CleanupVirtualTargets() was removed together with the scene-root container: the virtual targets
