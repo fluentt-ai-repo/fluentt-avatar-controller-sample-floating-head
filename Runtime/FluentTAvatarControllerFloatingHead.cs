@@ -357,11 +357,7 @@ namespace FluentT.Avatar.SampleFloatingHead
                 avatar.OnLateUpdateCompleted -= OnAvatarLateUpdateCompleted;
             }
 
-            // Clean up virtual targets when avatar is destroyed
-            if (enableLookTarget)
-            {
-                CleanupVirtualTargets();
-            }
+            // Virtual targets are children of this avatar and are destroyed with it — no cleanup needed.
         }
 
         #region Callback Handlers

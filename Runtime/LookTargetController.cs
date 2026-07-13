@@ -12,6 +12,16 @@ namespace FluentT.Avatar.SampleFloatingHead
     [System.Serializable]
     public partial class LookTargetController
     {
+        // Virtual-target hierarchy names. The container is a leaf child of the avatar root (never of a
+        // bone), so every lookup is scoped to the avatar's own subtree.
+        // The names deliberately carry no bone token ("Head", "LeftEye", ...): TMUtil's bone lookup falls
+        // back to a case-insensitive Contains() match, and a target named "HeadVirtualTarget" sitting in
+        // the avatar subtree can shadow the real "Head" bone and receive its animation curves.
+        public const string VirtualTargetsContainerName = "FT_VirtualTargets";
+        public const string HeadAnchorName = "FT_LookAnchor_H";
+        public const string EyeAnchorName = "FT_LookAnchor_E";
+        public const string LeftEyeAnchorName = "FT_LookAnchor_L";
+        public const string RightEyeAnchorName = "FT_LookAnchor_R";
 
         // Actual look target
         private Transform target;
@@ -23,6 +33,22 @@ namespace FluentT.Avatar.SampleFloatingHead
         private Transform rightEyeVirtualTarget; // Right eye target (TransformCorrected mode)
         private float minDistance = 0.5f; // Minimum distance to prevent cross-eye
         private float minDistanceSqr; // Cached squared value for performance
+
+        // Smoothed world position of each virtual target, held here instead of being re-read from the
+        // target's own Transform every frame. The targets are parented under the avatar, so re-reading
+        // their world position would let avatar movement drag the smoothing state and lag the gaze while
+        // the avatar turns. Mirrors the eye solver's smoothedDir fields in
+        // FluentTAvatarControllerFloatingHead.
+        // Seeded from the target's current position on first use, and re-seeded whenever a target is
+        // (re)assigned.
+        private Vector3 headVtSmoothed;
+        private bool headVtSeeded;
+        private Vector3 eyeVtSmoothed;
+        private bool eyeVtSeeded;
+        private Vector3 leftEyeVtSmoothed;
+        private bool leftEyeVtSeeded;
+        private Vector3 rightEyeVtSmoothed;
+        private bool rightEyeVtSeeded;
 
         // Avatar root transform (set externally for reliable hierarchy lookup)
         private Transform avatarRoot;
@@ -135,6 +161,8 @@ namespace FluentT.Avatar.SampleFloatingHead
         {
             headVirtualTarget = head;
             eyeVirtualTarget = eye;
+            headVtSeeded = false;
+            eyeVtSeeded = false;
         }
 
         /// <summary>
@@ -145,6 +173,9 @@ namespace FluentT.Avatar.SampleFloatingHead
             headVirtualTarget = head;
             leftEyeVirtualTarget = leftEye;
             rightEyeVirtualTarget = rightEye;
+            headVtSeeded = false;
+            leftEyeVtSeeded = false;
+            rightEyeVtSeeded = false;
         }
 
         /// <summary>
@@ -164,7 +195,7 @@ namespace FluentT.Avatar.SampleFloatingHead
         }
 
         /// <summary>
-        /// Find virtual targets from VirtualTargets container in scene root
+        /// Find virtual targets from the container under this avatar's own root.
         /// </summary>
         private void FindVirtualTargets()
         {
@@ -186,68 +217,41 @@ namespace FluentT.Avatar.SampleFloatingHead
                 return;
             }
 
-            // Find VirtualTargets container
-            GameObject virtualTargetsContainer = GameObject.Find("VirtualTargets");
-            if (virtualTargetsContainer == null)
+            // Scoped to this avatar's subtree. GameObject.Find() must not be used here: it is a
+            // scene-wide, active-only name search with an undefined match order, so with a container
+            // per avatar it could silently return another avatar's targets.
+            Transform group = root.Find(VirtualTargetsContainerName);
+            if (group == null)
             {
-                Debug.LogWarning("[LookTargetController] VirtualTargets container not found! Please enable Look Target in Editor to auto-create.");
-                return;
-            }
-
-            // Find avatar-specific virtual target group (strip "(Clone)" suffix from Instantiate)
-            string avatarGroupName = $"{root.name.Replace("(Clone)", "").Trim()}_VirtualTargets";
-            Transform avatarVirtualTargetGroup = virtualTargetsContainer.transform.Find(avatarGroupName);
-            if (avatarVirtualTargetGroup == null)
-            {
-                Debug.LogWarning($"[LookTargetController] {avatarGroupName} not found! Please enable Look Target in Editor to auto-create.");
+                Debug.LogWarning($"[LookTargetController] {VirtualTargetsContainerName} not found under {root.name}!");
                 return;
             }
 
             // Find head virtual target
             if (headVirtualTarget == null)
             {
-                headVirtualTarget = avatarVirtualTargetGroup.Find("HeadVirtualTarget");
-                if (headVirtualTarget != null)
-                {
-                    Debug.Log("[LookTargetController] Found HeadVirtualTarget");
-                }
-                else
-                {
-                    Debug.LogWarning("[LookTargetController] HeadVirtualTarget not found!");
-                }
+                headVirtualTarget = group.Find(HeadAnchorName);
+                headVtSeeded = false;
             }
 
             // Find eye virtual target (single target for both eyes - Transform mode)
             if (eyeVirtualTarget == null)
             {
-                eyeVirtualTarget = avatarVirtualTargetGroup.Find("EyeVirtualTarget");
-                if (eyeVirtualTarget != null)
-                {
-                    Debug.Log("[LookTargetController] Found EyeVirtualTarget");
-                }
-                else
-                {
-                    Debug.LogWarning("[LookTargetController] EyeVirtualTarget not found!");
-                }
+                eyeVirtualTarget = group.Find(EyeAnchorName);
+                eyeVtSeeded = false;
             }
 
             // Find left/right eye virtual targets (TransformCorrected mode)
             if (leftEyeVirtualTarget == null)
             {
-                leftEyeVirtualTarget = avatarVirtualTargetGroup.Find("LeftEyeVirtualTarget");
-                if (leftEyeVirtualTarget != null)
-                {
-                    Debug.Log("[LookTargetController] Found LeftEyeVirtualTarget");
-                }
+                leftEyeVirtualTarget = group.Find(LeftEyeAnchorName);
+                leftEyeVtSeeded = false;
             }
 
             if (rightEyeVirtualTarget == null)
             {
-                rightEyeVirtualTarget = avatarVirtualTargetGroup.Find("RightEyeVirtualTarget");
-                if (rightEyeVirtualTarget != null)
-                {
-                    Debug.Log("[LookTargetController] Found RightEyeVirtualTarget");
-                }
+                rightEyeVirtualTarget = group.Find(RightEyeAnchorName);
+                rightEyeVtSeeded = false;
             }
         }
 
@@ -333,7 +337,14 @@ namespace FluentT.Avatar.SampleFloatingHead
                 targetPos = target.position;
             }
 
-            headVirtualTarget.position = Vector3.Lerp(headVirtualTarget.position, targetPos, headSpeed * deltaTime);
+            if (!headVtSeeded)
+            {
+                headVtSmoothed = headVirtualTarget.position;
+                headVtSeeded = true;
+            }
+
+            headVtSmoothed = Vector3.Lerp(headVtSmoothed, targetPos, Mathf.Clamp01(headSpeed * deltaTime));
+            headVirtualTarget.position = headVtSmoothed;
         }
 
         /// <summary>

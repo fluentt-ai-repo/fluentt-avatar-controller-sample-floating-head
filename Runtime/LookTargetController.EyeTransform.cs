@@ -48,7 +48,14 @@ namespace FluentT.Avatar.SampleFloatingHead
                 targetPos = target.position;
             }
 
-            eyeVirtualTarget.position = Vector3.Lerp(eyeVirtualTarget.position, targetPos, eyeSpeed * deltaTime);
+            if (!eyeVtSeeded)
+            {
+                eyeVtSmoothed = eyeVirtualTarget.position;
+                eyeVtSeeded = true;
+            }
+
+            eyeVtSmoothed = Vector3.Lerp(eyeVtSmoothed, targetPos, Mathf.Clamp01(eyeSpeed * deltaTime));
+            eyeVirtualTarget.position = eyeVtSmoothed;
         }
 
         /// <summary>
@@ -63,15 +70,18 @@ namespace FluentT.Avatar.SampleFloatingHead
         /// </summary>
         private void UpdateEyeVirtualTargetsCorrected(float deltaTime)
         {
-            UpdateSingleEyeVirtualTarget(leftEyeBall, leftEyeVirtualTarget, deltaTime);
-            UpdateSingleEyeVirtualTarget(rightEyeBall, rightEyeVirtualTarget, deltaTime);
+            UpdateSingleEyeVirtualTarget(leftEyeBall, leftEyeVirtualTarget, deltaTime,
+                ref leftEyeVtSmoothed, ref leftEyeVtSeeded);
+            UpdateSingleEyeVirtualTarget(rightEyeBall, rightEyeVirtualTarget, deltaTime,
+                ref rightEyeVtSmoothed, ref rightEyeVtSeeded);
         }
 
         /// <summary>
         /// Move one eye's virtual target toward the real look target, clamped to a minimum distance
         /// (prevents cross-eye when the target is very close).
         /// </summary>
-        private void UpdateSingleEyeVirtualTarget(Transform eyeBall, Transform virtualTarget, float deltaTime)
+        private void UpdateSingleEyeVirtualTarget(Transform eyeBall, Transform virtualTarget, float deltaTime,
+            ref Vector3 smoothed, ref bool seeded)
         {
             if (eyeBall == null || virtualTarget == null)
                 return;
@@ -83,7 +93,14 @@ namespace FluentT.Avatar.SampleFloatingHead
                 ? eyeBall.position + directionToTarget.normalized * minDistance
                 : target.position;
 
-            virtualTarget.position = Vector3.Lerp(virtualTarget.position, targetPos, eyeSpeed * deltaTime);
+            if (!seeded)
+            {
+                smoothed = virtualTarget.position;
+                seeded = true;
+            }
+
+            smoothed = Vector3.Lerp(smoothed, targetPos, Mathf.Clamp01(eyeSpeed * deltaTime));
+            virtualTarget.position = smoothed;
         }
     }
 }
