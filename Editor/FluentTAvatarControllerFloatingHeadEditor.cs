@@ -29,7 +29,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         // Log prefix constant
         private const string LogPrefix = "[FluentTAvatarControllerFloatingHead]";
 
-        private string SessionStateKey => $"FluentTAvatarControllerFloatingHead_SelectedTab_{target.GetInstanceID()}";
+        private string SessionStateKey => $"FluentTAvatarControllerFloatingHead_SelectedTab_{target.GetEntityId()}";
 
         // Cached SerializedProperties (initialized in OnEnable)
         // -- Default Animation
