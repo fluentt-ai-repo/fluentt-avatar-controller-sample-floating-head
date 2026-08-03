@@ -20,7 +20,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
         private readonly List<string> tempIdList = new();
 
         // Track clip references to detect changes for auto override detection
-        private readonly Dictionary<string, int> previousClipInstanceIds = new();
+        private readonly Dictionary<string, EntityId> previousClipEntityIds = new();
 
         // Eye BlendShape curve prefixes used for auto-detection
         private static readonly string[] EYE_BLEND_SHAPE_PREFIXES = new[]
@@ -214,12 +214,12 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
             if (clipProp == null) return;
 
             var clip = clipProp.objectReferenceValue as AnimationClip;
-            int currentId = clip != null ? clip.GetInstanceID() : 0;
+            EntityId currentId = clip != null ? clip.GetEntityId() : EntityId.None;
             string key = clipProp.propertyPath;
 
-            if (previousClipInstanceIds.TryGetValue(key, out int prevId))
+            if (previousClipEntityIds.TryGetValue(key, out EntityId prevId))
             {
-                if (prevId != currentId && clip != null)
+                if (!prevId.Equals(currentId) && clip != null)
                 {
                     var bindings = AnimationUtility.GetCurveBindings(clip);
 
@@ -243,7 +243,7 @@ namespace FluentT.Avatar.SampleFloatingHead.Editor
                 }
             }
 
-            previousClipInstanceIds[key] = currentId;
+            previousClipEntityIds[key] = currentId;
         }
 
         #endregion

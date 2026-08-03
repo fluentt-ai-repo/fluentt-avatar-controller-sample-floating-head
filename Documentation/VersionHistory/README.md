@@ -4,7 +4,8 @@
 
 ## 버전 목록
 
-- [v0.6.3](v0.6.3.md) - 2026-07-30 - 미사용 UnlimitedFrameRate 제거 (런타임 IMGUI 의존성 해소, WebGL 경량화) (ACS v0.6.3 미러링) (현재)
+- [v0.7.0](v0.7.0.md) - 2026-08-03 - Unity 6.4 obsolete API 마이그레이션 (InstanceID → EntityId), 최소 Unity 6000.4 상향 (ACS v0.7.0 미러링) 🚨 BREAKING (현재)
+- [v0.6.3](v0.6.3.md) - 2026-07-30 - 미사용 UnlimitedFrameRate 제거 (런타임 IMGUI 의존성 해소, WebGL 경량화) (ACS v0.6.3 미러링)
 - [v0.6.2](v0.6.2.md) - 2026-07-13 - 시선 랜덤 오프셋 매 프레임 재추첨 수정, TargetTracking 데드코드 제거 (ACS v0.6.2 미러링)
 - [v0.6.1](v0.6.1.md) - 2026-07-13 - BlendShape 눈 제어 경로의 힙 할당 제거 (ACS v0.6.1 미러링)
 - [v0.6.0](v0.6.0.md) - 2026-07-13 - 가상 타겟을 아바타 계층으로 내장 (ACS v0.6.0 미러링)
